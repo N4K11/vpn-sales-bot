@@ -1,0 +1,79 @@
+﻿version: "3.9"
+
+services:
+  bot:
+    image: ${BOT_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=vpn-sales-bot
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vpn_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-vpn_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpn_bot}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpn_bot} -d ${POSTGRES_DB:-vpn_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      - bot
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+      - com.centurylinklabs.watchtower.scope=vpn-sales-bot
+    command:
+      - --label-enable
+      - --cleanup
+      - --scope
+      - vpn-sales-bot
+      - --http-api-update
+      - --http-api-token
+      - ${WATCHTOWER_HTTP_API_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+

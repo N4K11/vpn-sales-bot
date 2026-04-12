@@ -1,0 +1,14 @@
+﻿.git
+.gitignore
+.env
+.venv/
+__pycache__/
+*.pyc
+data/
+logs/
+backups/
+postgres_data/
+build/
+*.egg-info/
+tmp_*.py
+.vscode/

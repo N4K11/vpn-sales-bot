@@ -1,0 +1,16 @@
+﻿[Unit]
+Description=VPN Bot Ubuntu Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/vpn-bot-agent.env
+ExecStart=/usr/bin/python3 /opt/vpn-bot-agent/ubuntu_agent.py
+Restart=always
+RestartSec=3
+User=root
+WorkingDirectory=/opt/vpn-bot-agent
+
+[Install]
+WantedBy=multi-user.target

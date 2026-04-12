@@ -1,0 +1,66 @@
+﻿version: "3.9"
+
+services:
+  bot:
+    image: ${BOT_IMAGE:-vpn-sales-bot:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "${SUBSCRIPTION_PORT:-8080}:${SUBSCRIPTION_PORT:-8080}"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=vpn-sales-bot
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vpn_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-vpn_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpn_bot}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpn_bot} -d ${POSTGRES_DB:-vpn_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:-change_me_now}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+      - com.centurylinklabs.watchtower.scope=vpn-sales-bot
+    command:
+      - --label-enable
+      - --cleanup
+      - --scope
+      - vpn-sales-bot
+      - --http-api-update
+      - --http-api-token
+      - ${WATCHTOWER_HTTP_API_TOKEN:-change_me_now}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  postgres_data:

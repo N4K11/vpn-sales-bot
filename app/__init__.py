@@ -1,0 +1,2 @@
+"""VPN sales bot package."""
+

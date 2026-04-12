@@ -1,0 +1,8 @@
+{} {
+    encode zstd gzip
+
+    @botweb path /sub/* /access/*
+    reverse_proxy @botweb bot:8080
+
+    respond 404
+}
