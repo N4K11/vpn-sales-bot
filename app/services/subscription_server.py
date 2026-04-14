@@ -197,6 +197,29 @@ def _build_subscription_headers(request: web.Request, subscription, url_count: i
     return headers
 
 
+def _choose_subscription_format(request: web.Request) -> str:
+    explicit = (request.query.get('format') or '').strip().lower()
+    if explicit in {'raw', 'base64'}:
+        return explicit
+    user_agent = (request.headers.get('User-Agent') or '').strip().lower()
+    raw_markers = (
+        'happ',
+        'hiddify',
+        'sing-box',
+        'sfa',
+        'v2box',
+        'shadowrocket',
+        'stash',
+        'loon',
+        'quantumult',
+        'surge',
+        'clash',
+    )
+    if any(marker in user_agent for marker in raw_markers):
+        return 'raw'
+    return 'base64'
+
+
 def _render_access_page(user, notice: str = '') -> str:
     reserve_url = build_reserve_access_url(user)
     active_subscriptions = [sub for sub in getattr(user, 'subscriptions', []) or [] if _is_active_subscription(sub)]
@@ -320,7 +343,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
     if not urls:
         raise _hidden_not_found()
 
-    format_name = (request.query.get('format') or 'base64').strip().lower()
+    format_name = _choose_subscription_format(request)
     raw_payload = '\n'.join(urls)
     body = raw_payload
     if format_name != 'raw':
