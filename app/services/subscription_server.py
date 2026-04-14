@@ -6,7 +6,10 @@ from ipaddress import ip_address
 from time import monotonic
 from urllib.parse import quote_plus
 
+import aiohttp
 from aiohttp import web
+
+from app.config import settings
 from app.utils import is_future_datetime
 
 from app.services.provisioning import ProvisioningService
@@ -15,6 +18,8 @@ from app.services.subscription_links import (
     build_reserve_access_url,
     build_reserve_action_token,
     build_subscription_url,
+    build_xui_server_subscription_url,
+    decode_subscription_payload,
     encode_subscription_payload,
     iter_subscription_urls,
     parse_access_token,
@@ -142,6 +147,56 @@ def _render_subscription_card(subscription, access_token: str, user_id: int) -> 
     )
 
 
+async def _fetch_native_subscription_urls(subscription) -> list[str]:
+    active_keys = [key for key in getattr(subscription, 'keys', []) or [] if getattr(key, 'is_active', True)]
+    keys = active_keys or list(getattr(subscription, 'keys', []) or [])
+    unique_servers = []
+    seen = set()
+    for key in keys:
+        server = getattr(key, 'server', None)
+        server_id = getattr(server, 'id', None)
+        if not server or server_id in seen:
+            continue
+        seen.add(server_id)
+        unique_servers.append(server)
+
+    timeout = aiohttp.ClientTimeout(total=settings.xui_request_timeout)
+    connector = aiohttp.TCPConnector(ssl=settings.xui_verify_ssl)
+    merged: list[str] = []
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+        for server in unique_servers:
+            native_url = build_xui_server_subscription_url(server, getattr(subscription, 'id', 0))
+            if not native_url:
+                continue
+            try:
+                async with session.get(native_url) as response:
+                    response.raise_for_status()
+                    payload = await response.text()
+                lines = decode_subscription_payload(payload)
+            except Exception:
+                lines = []
+            if not lines:
+                for key in keys:
+                    if getattr(key, 'server_id', None) == getattr(server, 'id', None):
+                        access_url = (getattr(key, 'access_url', '') or '').strip()
+                        if access_url:
+                            lines.append(access_url)
+            for line in lines:
+                if line not in merged:
+                    merged.append(line)
+    return merged
+
+
+def _build_subscription_headers(request: web.Request, subscription, url_count: int) -> dict[str, str]:
+    headers = _security_headers(extra={'X-Subscription-Servers': str(url_count)})
+    headers['Profile-Update-Interval'] = '12'
+    headers['Profile-Web-Page-Url'] = str(request.url.with_query(None))
+    expire_at = getattr(subscription, 'ends_at', None)
+    expire_ts = int(expire_at.timestamp()) if expire_at else 0
+    headers['Subscription-Userinfo'] = f'upload=0; download=0; total=0; expire={expire_ts}'
+    return headers
+
+
 def _render_access_page(user, notice: str = '') -> str:
     reserve_url = build_reserve_access_url(user)
     active_subscriptions = [sub for sub in getattr(user, 'subscriptions', []) or [] if _is_active_subscription(sub)]
@@ -261,13 +316,17 @@ async def subscription_handler(request: web.Request) -> web.Response:
     if not subscription or subscription.status != 'active' or not is_future_datetime(getattr(subscription, 'ends_at', None)):
         raise _hidden_not_found()
 
-    urls = list(iter_subscription_urls(subscription))
+    urls = await _fetch_native_subscription_urls(subscription)
     if not urls:
         raise _hidden_not_found()
 
     format_name = (request.query.get('format') or 'base64').strip().lower()
-    body = '\n'.join(urls) if format_name == 'raw' else encode_subscription_payload(subscription)
-    headers = _security_headers(extra={'X-Subscription-Servers': str(len(urls))})
+    raw_payload = '\n'.join(urls)
+    body = raw_payload
+    if format_name != 'raw':
+        import base64
+        body = base64.b64encode(raw_payload.encode('utf-8')).decode('utf-8')
+    headers = _build_subscription_headers(request, subscription, len(urls))
     return web.Response(text=body, content_type='text/plain', charset='utf-8', headers=headers)
 
 
