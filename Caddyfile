@@ -1,8 +1,13 @@
-{} {
+{$DOMAIN} {
     encode zstd gzip
 
-    @botweb path /sub/* /access/*
-    reverse_proxy @botweb bot:8080
+    handle /sub/* {
+        reverse_proxy bot:8080
+    }
+
+    handle /access/* {
+        reverse_proxy bot:8080
+    }
 
     respond 404
 }
