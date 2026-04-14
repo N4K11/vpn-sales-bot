@@ -202,17 +202,8 @@ def access_result_keyboard(
 ):
     lb = _user_labels(labels)
     builder = InlineKeyboardBuilder()
-    if subscription_url and len(subscription_url) <= 256:
-        builder.row(InlineKeyboardButton(text=_copy_link_label(subscription_url), copy_text=CopyTextButton(text=subscription_url)))
     if actions:
         _append_compact_action_rows(builder, actions, width=1)
-    if reserve_url:
-        if len(reserve_url) <= 256:
-            builder.row(InlineKeyboardButton(text=_copy_link_label(reserve_url), copy_text=CopyTextButton(text=reserve_url)))
-        reserve_actions = [InlineKeyboardButton(text=lb['reserve_open'], url=reserve_url)]
-        if reserve_qr_callback:
-            reserve_actions.append(InlineKeyboardButton(text=lb['reserve_qr'], callback_data=reserve_qr_callback))
-        builder.row(*reserve_actions)
     builder.row(InlineKeyboardButton(text=lb['nav_profile'], callback_data='nav:profile'), InlineKeyboardButton(text=lb['nav_buy'], callback_data='nav:buy'))
     builder.row(InlineKeyboardButton(text=lb['help_devices'], callback_data='help:devices'))
     builder.row(InlineKeyboardButton(text=lb['nav_home'], callback_data='nav:home'))
@@ -231,17 +222,8 @@ def admin_result_keyboard(actions: list[tuple[str, str]], back_callback: str):
 def subscription_detail_keyboard(back_callback: str, key_actions: list[tuple[str, str]] | None = None, copy_value: str | None = None, extend_callback: str | None = None, reserve_url: str | None = None, qr_callback: str | None = None, reserve_qr_callback: str | None = None, labels: dict[str, str] | None = None):
     lb = _user_labels(labels)
     builder = InlineKeyboardBuilder()
-    if copy_value and len(copy_value) <= 256:
-        builder.row(InlineKeyboardButton(text=_copy_link_label(copy_value), copy_text=CopyTextButton(text=copy_value)))
     if qr_callback:
         builder.row(InlineKeyboardButton(text=lb['subscription_qr'], callback_data=qr_callback))
-    if reserve_url:
-        if len(reserve_url) <= 256:
-            builder.row(InlineKeyboardButton(text=_copy_link_label(reserve_url), copy_text=CopyTextButton(text=reserve_url)))
-        reserve_row: list[InlineKeyboardButton] = [InlineKeyboardButton(text=lb['reserve_open'], url=reserve_url)]
-        if reserve_qr_callback:
-            reserve_row.append(InlineKeyboardButton(text=lb['reserve_qr'], callback_data=reserve_qr_callback))
-        builder.row(*reserve_row)
     if extend_callback:
         builder.row(InlineKeyboardButton(text=lb['subscription_extend'], callback_data=extend_callback))
     if key_actions:

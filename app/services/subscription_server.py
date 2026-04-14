@@ -10,7 +10,7 @@ import aiohttp
 from aiohttp import web
 
 from app.config import settings
-from app.utils import is_future_datetime
+from app.utils import format_gb, is_future_datetime
 
 from app.services.provisioning import ProvisioningService
 from app.services.store import Store
