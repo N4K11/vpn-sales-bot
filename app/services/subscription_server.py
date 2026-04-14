@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from html import escape
@@ -7,6 +7,7 @@ from time import monotonic
 from urllib.parse import quote_plus
 
 from aiohttp import web
+from app.utils import is_future_datetime
 
 from app.services.provisioning import ProvisioningService
 from app.services.store import Store
@@ -60,7 +61,7 @@ def _is_internal_request(request: web.Request) -> bool:
 
 
 def _is_active_subscription(subscription) -> bool:
-    return bool(subscription and getattr(subscription, 'status', '') == 'active' and getattr(subscription, 'ends_at', datetime.min) > datetime.utcnow())
+    return bool(subscription and getattr(subscription, 'status', '') == 'active' and is_future_datetime(getattr(subscription, 'ends_at', None)))
 
 
 def _is_active_key(key, subscription) -> bool:
@@ -257,7 +258,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
         raise _hidden_not_found()
 
     subscription = await store.get_subscription_details(subscription_id)
-    if not subscription or subscription.status != 'active' or subscription.ends_at <= datetime.utcnow():
+    if not subscription or subscription.status != 'active' or not is_future_datetime(getattr(subscription, 'ends_at', None)):
         raise _hidden_not_found()
 
     urls = list(iter_subscription_urls(subscription))
@@ -341,4 +342,6 @@ def create_subscription_web_app(store: Store, provisioning: ProvisioningService)
     app.router.add_get('/access/{token}', reserve_access_handler)
     app.router.add_post('/access/{token}/key/{key_id}/replace', replace_key_handler)
     return app
+
+
 

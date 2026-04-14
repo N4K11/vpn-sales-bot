@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -13,6 +13,7 @@ from sqlalchemy import Select, desc, func, select
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.utils import is_future_datetime
 from app.db.models import (
     AppSetting,
     BalanceOperation,
@@ -227,6 +228,7 @@ class Store:
                     selectinload(User.subscriptions).selectinload(Subscription.user),
                     selectinload(User.subscriptions).selectinload(Subscription.keys).selectinload(VpnKey.server),
                     selectinload(User.subscriptions).selectinload(Subscription.keys).selectinload(VpnKey.subscription),
+                    selectinload(User.payments),
                     selectinload(User.balance_operations),
                     selectinload(User.referrals),
                 )
@@ -1017,7 +1019,7 @@ class Store:
             )
             if not subscription:
                 return False
-            if subscription.status == 'active' and subscription.ends_at and subscription.ends_at > datetime.utcnow():
+            if subscription.status == 'active' and is_future_datetime(getattr(subscription, 'ends_at', None)):
                 return False
             if getattr(subscription, 'keys', None):
                 return False
@@ -1513,6 +1515,9 @@ class Store:
         error_text = (error or "Неизвестная ошибка").strip() or "Неизвестная ошибка"
         logger.warning("Server check failed for %s: %s", server_id, error_text)
         await self.update_server_health(server_id, "offline", 0, 0, error_text)
+
+
+
 
 
 

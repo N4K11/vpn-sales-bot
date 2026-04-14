@@ -639,10 +639,12 @@ def broadcast_filters_keyboard():
     return builder.as_markup()
 
 
-def updates_admin_keyboard(can_trigger: bool):
+def updates_admin_keyboard(can_trigger: bool, update_available: bool = False):
     builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text='🔄 Проверить обновления', callback_data='adm:updates'))
     if can_trigger:
-        builder.row(InlineKeyboardButton(text='🚀 Обновить сейчас', callback_data='adm:updates:run'))
+        button_title = '🆕 Обновить сейчас' if update_available else '🚀 Обновить сейчас'
+        builder.row(InlineKeyboardButton(text=button_title, callback_data='adm:updates:run'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()

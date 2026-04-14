@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from functools import cached_property
 from pathlib import Path
@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     admin_ids_raw: str = Field(default='', alias='ADMIN_IDS')
     bot_username: str = Field(default='vpn_bot', alias='BOT_USERNAME')
     bot_image: str = Field(default='', alias='BOT_IMAGE')
+    app_build_sha: str = Field(default='', alias='APP_BUILD_SHA')
+    github_repository: str = Field(default='', alias='GITHUB_REPOSITORY')
+    github_default_branch: str = Field(default='main', alias='GITHUB_DEFAULT_BRANCH')
 
     database_url: str = Field(default='sqlite+aiosqlite:///./data/bot.db', alias='DATABASE_URL')
     redis_url: str = Field(default='', alias='REDIS_URL')
@@ -71,3 +74,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import csv
@@ -84,7 +84,7 @@ from app.services.server_agents import ServerAgentClient, ServerAgentError
 from app.services.store import Store
 from app.services.subscription_links import build_reserve_access_url, build_subscription_url, subscription_server_names
 from app.services.updater import UpdateService
-from app.utils import format_gb, format_money
+from app.utils import format_gb, format_money, is_future_datetime
 
 
 class BotController:
@@ -1084,17 +1084,17 @@ class BotController:
             return
         if section == "updates" and len(parts) > 2 and parts[2] == "run":
             await self._safe_answer_callback(callback, "Запрос на обновление отправлен...")
-            status = self.updater.get_status()
+            status = await self.updater.get_status()
             try:
                 result_text = await self.updater.trigger_update()
             except Exception as exc:
-                await self._safe_edit_message_text(callback.message, self._render_updates_admin(status, error_text=str(exc)), reply_markup=updates_admin_keyboard(status.trigger_configured))
+                await self._safe_edit_message_text(callback.message, self._render_updates_admin(status, error_text=str(exc)), reply_markup=updates_admin_keyboard(status.trigger_configured, status.update_available))
                 return
-            await self._safe_edit_message_text(callback.message, self._render_updates_admin(status, result_text=result_text), reply_markup=updates_admin_keyboard(status.trigger_configured))
+            await self._safe_edit_message_text(callback.message, self._render_updates_admin(status, result_text=result_text), reply_markup=updates_admin_keyboard(status.trigger_configured, status.update_available))
             return
         if section == "updates":
-            status = self.updater.get_status()
-            await self._safe_edit_message_text(callback.message, self._render_updates_admin(status), reply_markup=updates_admin_keyboard(status.trigger_configured))
+            status = await self.updater.get_status()
+            await self._safe_edit_message_text(callback.message, self._render_updates_admin(status), reply_markup=updates_admin_keyboard(status.trigger_configured, status.update_available))
             await self._safe_answer_callback(callback, )
             return
         await self._safe_answer_callback(callback, )
@@ -1934,8 +1934,8 @@ class BotController:
 
     async def _admin_panel_text(self) -> str:
         metrics = await self.store.get_admin_metrics()
-        update_status = self.updater.get_status()
-        return "\n".join([
+        update_status = await self.updater.get_status()
+        lines = [
             "⚙️ Центр управления",
             "",
             "Пульс системы:",
@@ -1944,9 +1944,19 @@ class BotController:
             f"⏳ Ожидающие оплаты: {metrics['pending_payments']}",
             f"🖥️ Серверов в базе: {metrics['servers']}",
             f"🚀 Версия: {update_status.current_version}",
+        ]
+        if update_status.update_available:
+            latest_label = update_status.latest_version or update_status.latest_revision[:7]
+            lines.append(f"🆕 Доступно обновление: {latest_label}")
+        elif update_status.check_error:
+            lines.append("⚠️ Статус обновлений пока не проверен")
+        else:
+            lines.append("✅ Новых обновлений не обнаружено")
+        lines.extend([
             "",
             "Ниже собраны все основные разделы управления: пользователи, серверы, тарифы, оплаты, финансы, аналитика, резервный доступ, тексты, рассылки, резервные копии, обновления и встроенная база знаний.",
         ])
+        return "\n".join(lines)
 
     def _render_finance_admin(self, analytics: dict) -> str:
         server_lines = []
@@ -2451,6 +2461,49 @@ class BotController:
             "Нажимайте фильтры ниже — список обновится в этом же окне без перехода в отдельный раздел.",
         ])
 
+    def _render_admin_user(self, user) -> str:
+        subscriptions = self._profile_subscriptions(user)
+        active_subscriptions = [sub for sub in subscriptions if self._is_subscription_active(sub)]
+        archived_subscriptions = [sub for sub in subscriptions if not self._is_subscription_active(sub)]
+        total_keys = sum(len(getattr(sub, 'keys', []) or []) for sub in subscriptions)
+        active_keys = sum(1 for sub in subscriptions for key in getattr(sub, 'keys', []) or [] if self._is_key_alive(key, sub))
+        archived_keys = max(total_keys - active_keys, 0)
+        username = f"@{user.username}" if getattr(user, 'username', None) else 'не указан'
+        full_name = (getattr(user, 'full_name', '') or '').strip() or 'не указано'
+        paid_payments = sum(1 for payment in getattr(user, 'payments', []) or [] if getattr(payment, 'status', '') == 'paid')
+        lines = [
+            '👤 Карточка пользователя',
+            '',
+            f'🆔 Внутренний ID: {user.id}',
+            f'🪪 Telegram ID: {user.telegram_id}',
+            f'🙍 Имя: {full_name}',
+            f'🔗 Username: {username}',
+            f"🔐 Статус доступа: {'🚫 заблокирован' if getattr(user, 'is_blocked', False) else '✅ активен'}",
+            f"👑 Роль: {'администратор' if getattr(user, 'is_admin', False) else 'пользователь'}",
+            '',
+            f'💰 Баланс: {format_money(user.balance)}',
+            f'📦 Подписок: {len(subscriptions)}',
+            f'🟢 Активных подписок: {len(active_subscriptions)}',
+            f'🔑 Рабочих ключей: {active_keys}',
+            f'🔴 Архивных ключей: {archived_keys}',
+            f'💳 Успешных оплат: {paid_payments}',
+            f'📜 Операций баланса: {len(getattr(user, "balance_operations", []) or [])}',
+            f'👥 Рефералов: {len(getattr(user, "referrals", []) or [])}',
+        ]
+        if active_subscriptions:
+            lines.extend(['', 'Активные подписки:'])
+            for idx, subscription in enumerate(active_subscriptions[:3], start=1):
+                lines.extend(self._render_subscription_block(subscription, idx, admin_view=True))
+        if archived_subscriptions:
+            lines.extend(['', 'Архив:'])
+            for idx, subscription in enumerate(archived_subscriptions[:2], start=1):
+                lines.extend(self._render_subscription_block(subscription, idx, admin_view=True))
+            if len(archived_subscriptions) > 2:
+                lines.append(f"… и ещё {len(archived_subscriptions) - 2} архивных подписок")
+        if not subscriptions:
+            lines.extend(['', 'У пользователя пока нет подписок. Можно выдать доступ вручную кнопкой ниже.'])
+        return '\n'.join(lines)
+
     def _render_operations_text(self, operations) -> str:
         lines = ["📜 Операции пользователя", ""]
         if not operations:
@@ -2894,7 +2947,7 @@ class BotController:
         return sorted(keys, key=lambda item: (0 if self._is_key_alive(item, subscription) else 1, self._key_server_name(item).lower()))
 
     def _is_subscription_active(self, subscription) -> bool:
-        return bool(subscription and subscription.status == "active" and subscription.ends_at > datetime.utcnow())
+        return bool(subscription and subscription.status == "active" and is_future_datetime(getattr(subscription, "ends_at", None)))
 
     def _is_key_alive(self, key, subscription=None) -> bool:
         linked_subscription = subscription or getattr(key, "__dict__", {}).get("subscription")
@@ -3175,9 +3228,21 @@ class BotController:
             "🚀 Обновления",
             "",
             f"Текущая версия: {status.current_version}",
+            f"Текущая ревизия: {(status.current_revision[:7] if status.current_revision else 'неизвестна')}",
             f"Образ: {status.image_name or 'не указан'}",
+            f"GitHub репозиторий: {status.repository or 'не определён'}",
             f"Триггер обновления: {'настроен' if status.trigger_configured else 'не настроен'}",
         ]
+        if status.latest_version:
+            lines.append(f"Последняя версия в GitHub: {status.latest_version}")
+        if status.latest_revision:
+            lines.append(f"Последний коммит GitHub: {status.latest_revision[:7]}")
+        if status.update_available:
+            lines.append("🆕 Доступно обновление: можно накатывать через кнопку ниже.")
+        elif status.check_error:
+            lines.append("⚠️ Не удалось автоматически проверить новую версию.")
+        else:
+            lines.append("✅ Бот уже работает на последней доступной версии.")
         if status.trigger_url:
             lines.append(f"URL триггера: {status.trigger_url}")
         lines.extend([
@@ -3191,6 +3256,8 @@ class BotController:
             lines.extend(["", f"✅ {result_text}"])
         if error_text:
             lines.extend(["", f"⚠️ {error_text}"])
+        elif status.check_error:
+            lines.extend(["", f"⚠️ Ошибка проверки GitHub: {status.check_error}"])
         if not status.trigger_configured:
             lines.extend(["", "Для кнопки обновления нужно настроить UPDATE_TRIGGER_URL и UPDATE_TRIGGER_TOKEN на сервере."])
         return "\n".join(lines)
@@ -3341,6 +3408,12 @@ class BotController:
             "crypto": "Crypto",
             "balance": "Баланс аккаунта",
         }.get(method, method)
+
+
+
+
+
+
 
 
 

@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 
@@ -24,3 +25,12 @@ def format_gb(used_bytes: int) -> str:
     if used_bytes <= 0:
         return "0.00 GB"
     return f"{used_bytes / (1024 ** 3):.2f} GB"
+
+
+def is_future_datetime(value: datetime | None) -> bool:
+    if not value:
+        return False
+    tzinfo = getattr(value, 'tzinfo', None)
+    if tzinfo is not None and value.utcoffset() is not None:
+        return value > datetime.now(tzinfo)
+    return value > datetime.utcnow()

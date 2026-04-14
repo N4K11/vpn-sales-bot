@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 SERVER_ALERT_INTERVAL_SECONDS = 300
 SERVER_BILLING_REMINDER_INTERVAL_SECONDS = 21600
 CLEANUP_INTERVAL_SECONDS = 21600
+UPDATE_CHECK_INTERVAL_SECONDS = 3600
 CPU_ALERT_THRESHOLD = 85
 RAM_ALERT_THRESHOLD = 85
 AGENT_MEMORY_ALERT_THRESHOLD = 85
@@ -371,6 +372,32 @@ async def cleanup_loop(store: Store, backups: BackupService) -> None:
         await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
 
+async def update_notifications_loop(bot: Bot, updater: UpdateService) -> None:
+    last_notified_marker = ''
+    while True:
+        try:
+            status = await updater.get_status()
+            marker = f"{status.latest_version}:{status.latest_revision}"
+            if status.update_available and marker and marker != last_notified_marker:
+                lines = [
+                    '🆕 Доступно обновление бота',
+                    '',
+                    f'Текущая версия: {status.current_version}',
+                    f"Текущая ревизия: {status.current_revision[:7] if status.current_revision else 'неизвестна'}",
+                    f'Новая версия: {status.latest_version}',
+                    f"Новый коммит: {status.latest_revision[:7] if status.latest_revision else 'неизвестен'}",
+                    '',
+                    'Откройте Админ-панель -> Обновления и нажмите «Обновить сейчас».',
+                ]
+                await notify_admins(bot, '\n'.join(lines))
+                last_notified_marker = marker
+            elif not status.update_available:
+                last_notified_marker = ''
+        except Exception as exc:
+            logger.warning('Update notifications loop failed: %s', exc)
+        await asyncio.sleep(UPDATE_CHECK_INTERVAL_SECONDS)
+
+
 async def backup_loop(bot: Bot, backups: BackupService) -> None:
     tz = ZoneInfo(settings.backup_timezone)
     while True:
@@ -432,6 +459,7 @@ async def main() -> None:
         asyncio.create_task(server_billing_reminders_loop(bot, store)),
         asyncio.create_task(cleanup_loop(store, backups)),
         asyncio.create_task(backup_loop(bot, backups)),
+        asyncio.create_task(update_notifications_loop(bot, updater)),
     ]
     try:
         await dp.start_polling(bot)
@@ -454,6 +482,8 @@ def run() -> None:
 
 if __name__ == '__main__':
     run()
+
+
 
 
 

@@ -1,7 +1,11 @@
-﻿FROM python:3.12-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ARG APP_BUILD_SHA=dev
+ARG APP_GITHUB_REPOSITORY=
+ENV APP_BUILD_SHA=${APP_BUILD_SHA}
+ENV GITHUB_REPOSITORY=${APP_GITHUB_REPOSITORY}
 
 WORKDIR /app
 
@@ -16,4 +20,5 @@ RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir .
 
 CMD ["python", "-m", "app.main"]
+
 

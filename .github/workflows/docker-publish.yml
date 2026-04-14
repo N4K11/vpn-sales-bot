@@ -1,4 +1,4 @@
-﻿name: Publish Docker Image
+name: Publish Docker Image
 
 on:
   push:
@@ -50,3 +50,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_BUILD_SHA=${{ github.sha }}
+            APP_GITHUB_REPOSITORY=${{ github.repository }}
+

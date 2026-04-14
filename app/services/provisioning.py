@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import re
@@ -13,6 +13,7 @@ from app.db.models import Subscription, User, VpnKey
 from app.db.session import SessionLocal
 from app.services.store import Store
 from app.services.xui import XUIClient
+from app.utils import is_future_datetime
 
 logger = logging.getLogger(__name__)
 _EXTENSION_RE = re.compile(r"-ext(?P<subscription_id>\d+)-")
@@ -376,7 +377,7 @@ class ProvisioningService:
         return [key for key in getattr(subscription, 'keys', []) or [] if key.is_active]
 
     def _is_subscription_active(self, subscription: Subscription) -> bool:
-        return subscription.status == 'active' and subscription.ends_at > datetime.utcnow()
+        return subscription.status == 'active' and is_future_datetime(getattr(subscription, 'ends_at', None))
 
     def _subscription_email(self, user: User, subscription: Subscription) -> str:
         return f'tg{user.telegram_id}-sub{subscription.id}'
@@ -420,3 +421,5 @@ class ProvisioningService:
         cutoff = datetime.utcnow() - timedelta(minutes=keep_minutes)
         while self._failure_events and isinstance(self._failure_events[0].get('ts'), datetime) and self._failure_events[0]['ts'] < cutoff:
             self._failure_events.popleft()
+
+
