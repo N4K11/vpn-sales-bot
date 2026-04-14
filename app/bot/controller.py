@@ -230,7 +230,7 @@ class BotController:
         reserve_url = await self._reserve_access_url(getattr(subscription, 'user', None))
         await message.answer(
             await self._render_activation_result(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
-            reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], "profile"), reserve_url=reserve_url, labels=await self._user_button_labels()),
+            reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], "profile"), subscription_url=build_subscription_url(subscription), reserve_url=reserve_url, reserve_qr_callback=(f"qr:reserve:{subscription.user_id}" if reserve_url and getattr(subscription, 'user_id', None) else None), labels=await self._user_button_labels()),
         )
 
     async def handle_nav_callbacks(self, callback: CallbackQuery, state: FSMContext) -> None:
@@ -496,7 +496,7 @@ class BotController:
             await self._safe_edit_message_text(callback.message, f'⚠️ {error}\n\nПопробуйте позже или вернитесь назад.', reply_markup=back_keyboard('nav:trial', labels=await self._user_button_labels()))
             return
         reserve_url = await self._reserve_access_url(getattr(subscription, 'user', None))
-        await self._safe_edit_message_text(callback.message, await self._render_activation_result(subscription, vpn_keys, is_trial=True, reserve_url=reserve_url), reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], 'profile'), reserve_url=reserve_url, labels=await self._user_button_labels()))
+        await self._safe_edit_message_text(callback.message, await self._render_activation_result(subscription, vpn_keys, is_trial=True, reserve_url=reserve_url), reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], 'profile'), subscription_url=build_subscription_url(subscription), reserve_url=reserve_url, reserve_qr_callback=(f"qr:reserve:{subscription.user_id}" if reserve_url and getattr(subscription, 'user_id', None) else None), labels=await self._user_button_labels()))
 
     async def handle_buy_callbacks(self, callback: CallbackQuery) -> None:
         user = await self.store.get_or_create_user(callback.from_user)
@@ -636,7 +636,7 @@ class BotController:
                     await self._safe_edit_message_text(callback.message, '⚠️ Оплата прошла, но доступ пока не создался. Проверьте доступность серверов 3x-ui и попробуйте чуть позже.', reply_markup=back_keyboard('nav:profile', labels=await self._user_button_labels()))
                     return
                 reserve_url = await self._reserve_access_url(getattr(subscription, 'user', None))
-                await self._safe_edit_message_text(callback.message, await self._render_activation_result(subscription, vpn_keys, extended=extended, reserve_url=reserve_url), reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], 'profile'), reserve_url=reserve_url, labels=await self._user_button_labels()))
+                await self._safe_edit_message_text(callback.message, await self._render_activation_result(subscription, vpn_keys, extended=extended, reserve_url=reserve_url), reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], 'profile'), subscription_url=build_subscription_url(subscription), reserve_url=reserve_url, reserve_qr_callback=(f"qr:reserve:{subscription.user_id}" if reserve_url and getattr(subscription, 'user_id', None) else None), labels=await self._user_button_labels()))
                 return
             payment = await self.store.create_payment(current_user.id, tariff.id, method, amount, 'RUB', payload)
             await self._safe_answer_callback(callback, 'Готовлю платёжную ссылку...')
@@ -2389,8 +2389,8 @@ class BotController:
             return "\n".join(lines)
         lines.extend(['', *self._subscription_link_lines(subscription, reserve_url=reserve_url)])
         if reserve_url:
-            lines.extend(['', 'Если Telegram перестанет открываться, используйте резервную ссылку выше и сохраните её заранее.'])
-        lines.extend(['', 'Ниже можно открыть подписку и при необходимости посмотреть отдельные ключи по серверам.'])
+            lines.extend(['', 'Резервный кабинет ниже лучше сохранить заранее, чтобы доступ не потерялся даже без Telegram.'])
+        lines.extend(['', 'Ниже можно скопировать адрес подписки, открыть резервный кабинет и при необходимости посмотреть отдельные ключи по серверам.'])
         return "\n".join(lines)
 
     def _render_tariffs_admin(self, tariffs) -> str:
@@ -2856,18 +2856,15 @@ class BotController:
         url = build_subscription_url(subscription)
         if url:
             lines = [
-                "🌐 Общая ссылка подписки:",
-                url,
-                "",
-                "Импортируйте её в клиент с поддержкой Subscription URL, чтобы получить все активные серверы сразу.",
-                "Ниже доступны кнопки копирования и QR-код.",
+                "🌐 Общая ссылка подписки уже готова.",
+                "Нажмите на адрес в кнопках ниже — он скопируется в одно касание.",
+                "Импортируйте ссылку в клиент с поддержкой Subscription URL, чтобы сразу получить все активные серверы.",
             ]
             if reserve_url:
                 lines.extend([
                     "",
-                    "🌍 Резервный доступ вне Telegram:",
-                    reserve_url,
-                    "Сохраните эту ссылку заранее. Если Telegram недоступен, по ней можно открыть аварийный кабинет по IP и перевыпустить ключ.",
+                    "🌍 Резервный доступ тоже готов.",
+                    "Сохраните резервный адрес заранее: по нему можно открыть личный кабинет вне Telegram и при необходимости заменить ключ.",
                 ])
             return lines
         return [
@@ -3264,7 +3261,7 @@ class BotController:
 
     async def _render_key_view(self, key, notice: str | None = None) -> str:
         page = await self.store.get_content("key_detail")
-        intro = page.body if page and page.body else "Здесь можно скопировать ключ, показать QR, заменить нерабочий ключ или удалить уже истёкший элемент."
+        intro = page.body if page and page.body else "Здесь можно быстро забрать адрес ключа, показать QR и при необходимости заменить нерабочий доступ."
         subscription = key.subscription
         lines = [
             f"{self._key_state_icon(key, subscription)} Ключ сервера",
@@ -3280,11 +3277,10 @@ class BotController:
         if notice:
             lines.extend(['', notice])
         if self._is_key_alive(key, subscription):
-            lines.extend(['', key.access_url])
             if len((key.access_url or '').strip()) > 256:
-                lines.extend(['', 'Telegram не даёт скопировать такой длинный ключ inline-кнопкой, поэтому выше он показан целиком для ручного копирования.'])
+                lines.extend(['', key.access_url, '', 'Ключ получился длинным, поэтому Telegram показывает его целиком в тексте. Скопируйте его вручную или используйте QR ниже.'])
             else:
-                lines.extend(['', 'Ключ можно скопировать кнопкой ниже в одно нажатие.'])
+                lines.extend(['', 'Нажмите на адрес в кнопке ниже — ключ скопируется в одно касание.'])
         else:
             if self._needs_key_reissue(key) and subscription and self._is_subscription_active(subscription):
                 lines.extend(['', 'Этот ключ импортирован из старой базы без готовой рабочей ссылки. Нажмите «Заменить ключ», чтобы бот выпустил новый рабочий ключ в текущем формате.'])
@@ -3408,78 +3404,3 @@ class BotController:
             "crypto": "Crypto",
             "balance": "Баланс аккаунта",
         }.get(method, method)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

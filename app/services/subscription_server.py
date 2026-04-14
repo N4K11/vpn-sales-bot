@@ -88,64 +88,76 @@ def _format_datetime(value) -> str:
     return value.strftime('%d.%m.%Y %H:%M')
 
 
+def _link_preview(value: str, limit: int = 78) -> str:
+    text = (value or '').strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + '…'
+
+
+def _render_copy_tile(title: str, value: str, caption: str, tone: str = '') -> str:
+    link = (value or '').strip()
+    if not link:
+        return ''
+    tone_class = f' {tone}' if tone else ''
+    return (
+        f'<button class="copy-tile{tone_class}" type="button" data-copy="{escape(link)}" onclick="copyValue(this)">'
+        f'<span class="copy-title">{escape(title)}</span>'
+        f'<span class="copy-value">{escape(_link_preview(link))}</span>'
+        f'<span class="copy-caption">{escape(caption)}</span>'
+        '</button>'
+    )
+
 def _render_key_card(key, subscription, access_token: str, user_id: int) -> str:
     key_id = getattr(key, 'id', 0)
     access_url = (getattr(key, 'access_url', '') or '').strip()
     server_name = escape(getattr(getattr(key, 'server', None), 'name', '') or 'Сервер')
     is_active = _is_active_key(key, subscription)
     status_badge = '<span class="badge badge-ok">🟢 Рабочий</span>' if is_active else '<span class="badge badge-bad">🔴 Неактивен</span>'
-    replace_button = ''
+    replace_block = ''
     if getattr(key, 'is_active', False) and _is_active_subscription(subscription):
         action_token = build_reserve_action_token(user_id=user_id, key_id=key_id, action='replace')
-        replace_button = (
+        replace_block = (
+            '<div class="actions-row">'
             f'<form method="post" action="/access/{access_token}/key/{key_id}/replace" class="inline-form">'
             f'<input type="hidden" name="action_token" value="{escape(action_token)}">'
-            '<button class="btn btn-secondary" type="submit">♻️ Перевыпустить ключ</button>'
+            '<button class="btn btn-secondary" type="submit">♻️ Заменить ключ</button>'
             '</form>'
+            '</div>'
         )
-    copy_button = f'<button class="btn btn-primary" type="button" onclick="copyText(\'key-{key_id}\')">📋 Скопировать ключ</button>' if access_url else ''
-    safe_url = escape(access_url)
+    copy_tile = _render_copy_tile(f'Ключ • {server_name}', access_url, 'Нажмите, чтобы скопировать адрес', tone='soft')
+    if not copy_tile:
+        copy_tile = '<p class="muted compact">Ключ ещё не подтянулся.</p>'
+    used_text = format_gb(getattr(key, 'used_bytes', 0) or 0)
     return (
-        f'<div class="key-card" id="key-{key_id}">'
-        f'<div class="key-header"><div><strong>{server_name}</strong></div>{status_badge}</div>'
-        f'<textarea readonly class="mono" id="key-value-{key_id}">{safe_url}</textarea>'
-        '<div class="actions-row">'
-        f'{copy_button}'
-        f'{replace_button}'
-        '</div>'
+        '<div class="key-card">'
+        f'<div class="key-header"><div><strong>{server_name}</strong><p class="muted compact">Трафик: {used_text}</p></div>{status_badge}</div>'
+        f'{copy_tile}'
+        f'{replace_block}'
         '</div>'
     )
 
-
 def _render_subscription_card(subscription, access_token: str, user_id: int) -> str:
-    sub_id = getattr(subscription, 'id', 0)
     sub_url = build_subscription_url(subscription)
-    reserve_link = ''
-    if sub_url:
-        reserve_link = (
-            f'<div class="actions-row">'
-            f'<a class="btn btn-primary" href="{escape(sub_url)}" target="_blank" rel="noopener">🌐 Открыть ссылку подписки</a>'
-            f'<button class="btn btn-secondary" type="button" onclick="copyText(\'sub-{sub_id}\')">📋 Скопировать ссылку</button>'
-            '</div>'
-        )
     names = subscription_server_names(subscription)
     keys = list(getattr(subscription, 'keys', []) or [])
     keys.sort(key=lambda item: (0 if _is_active_key(item, subscription) else 1, getattr(getattr(item, 'server', None), 'name', '')))
     key_cards = ''.join(_render_key_card(key, subscription, access_token, user_id) for key in keys)
     servers_preview = escape(', '.join(names) if names else 'Серверы пока не подтянулись')
     status_badge = '<span class="badge badge-ok">🟢 Активна</span>' if _is_active_subscription(subscription) else '<span class="badge badge-bad">🔴 Истекла</span>'
+    subscription_tile = _render_copy_tile('Общая ссылка подписки', sub_url, 'Нажмите, чтобы скопировать адрес для клиента', tone='accent')
+    if not subscription_tile:
+        subscription_tile = '<p class="muted compact">Общая ссылка пока не сформировалась.</p>'
     return (
         '<section class="subscription-card">'
-        f'<div class="card-top"><div><h3>{escape(_subscription_title(subscription))}</h3><p>До {_format_datetime(getattr(subscription, "ends_at", None))}</p></div>{status_badge}</div>'
+        f'<div class="card-top"><div><h3>{escape(_subscription_title(subscription))}</h3><p class="muted compact">До {_format_datetime(getattr(subscription, "ends_at", None))}</p></div>{status_badge}</div>'
         f'<p class="muted">🌐 Серверы: {servers_preview}</p>'
-        f'<textarea readonly class="mono" id="sub-{sub_id}">{escape(sub_url)}</textarea>'
-        f'{reserve_link}'
+        f'{subscription_tile}'
         '<div class="subkeys">'
         f'{key_cards or "<p class=\"muted\">Ключи пока не готовы.</p>"}'
         '</div>'
         '</section>'
     )
-
 
 async def _fetch_native_subscription_urls(subscription) -> list[str]:
     active_keys = [key for key in getattr(subscription, 'keys', []) or [] if getattr(key, 'is_active', True)]
@@ -230,7 +242,7 @@ def _render_access_page(user, notice: str = '') -> str:
     user_id = int(getattr(user, 'id', 0) or 0)
     active_cards = ''.join(_render_subscription_card(subscription, token, user_id) for subscription in active_subscriptions)
     user_name = escape(getattr(user, 'full_name', '') or getattr(user, 'username', '') or str(getattr(user, 'telegram_id', 'Пользователь')))
-    safe_reserve_url = escape(reserve_url)
+    reserve_tile = _render_copy_tile('Личная ссылка на кабинет', reserve_url, 'Нажмите, чтобы скопировать и сохраните отдельно', tone='accent')
     return f'''<!doctype html>
 <html lang="ru">
 <head>
@@ -239,70 +251,83 @@ def _render_access_page(user, notice: str = '') -> str:
   <title>Резервный доступ</title>
   <style>
     :root {{
-      --bg: #0f1720;
-      --panel: rgba(18, 28, 38, 0.92);
-      --panel-soft: rgba(27, 40, 53, 0.92);
+      --bg: #0b1320;
+      --bg-soft: #101c2a;
+      --panel: rgba(15, 24, 36, 0.94);
+      --panel-soft: rgba(27, 39, 53, 0.92);
       --line: rgba(255,255,255,0.08);
-      --text: #eef4f8;
-      --muted: #9fb0bf;
-      --accent: #e5b34e;
-      --accent-2: #76d1c8;
-      --danger: #f07373;
-      --ok: #56cf87;
+      --line-strong: rgba(255,255,255,0.12);
+      --text: #eef5fb;
+      --muted: #9fb2c5;
+      --accent: #f2c869;
+      --accent-2: #73d7cb;
+      --ok: #67d591;
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; font-family: Segoe UI, Arial, sans-serif; background: radial-gradient(circle at top, #183247 0%, var(--bg) 52%); color: var(--text); }}
-    .shell {{ max-width: 1040px; margin: 0 auto; padding: 24px; }}
-    .hero {{ background: linear-gradient(140deg, rgba(229,179,78,0.16), rgba(118,209,200,0.12)); border: 1px solid var(--line); border-radius: 24px; padding: 24px; box-shadow: 0 24px 50px rgba(0,0,0,0.28); }}
+    body {{ margin: 0; font-family: Segoe UI, Arial, sans-serif; color: var(--text); background: radial-gradient(circle at top, #183247 0%, var(--bg) 48%, #08111d 100%); }}
+    .shell {{ max-width: 1080px; margin: 0 auto; padding: 28px 20px 40px; }}
+    .hero {{ background: linear-gradient(145deg, rgba(242,200,105,0.12), rgba(115,215,203,0.10)); border: 1px solid var(--line); border-radius: 28px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.30); }}
+    .hero-badge {{ display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(115,215,203,0.14); border: 1px solid rgba(115,215,203,0.20); color: #dff8f3; font-size: 14px; }}
     h1, h2, h3, p {{ margin-top: 0; }}
+    h1 {{ margin: 16px 0 12px; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; }}
+    h2 {{ font-size: 28px; margin-bottom: 10px; }}
+    h3 {{ font-size: 24px; margin-bottom: 8px; }}
+    .lead {{ font-size: 18px; line-height: 1.55; max-width: 780px; }}
     .muted {{ color: var(--muted); }}
-    .notice {{ margin: 18px 0; padding: 14px 16px; border-radius: 16px; background: rgba(118, 209, 200, 0.12); border: 1px solid rgba(118, 209, 200, 0.24); }}
+    .compact {{ margin-bottom: 0; }}
+    .notice {{ margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: rgba(115,215,203,0.12); border: 1px solid rgba(115,215,203,0.22); }}
+    .hero-grid {{ display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; margin-top: 24px; }}
     .grid {{ display: grid; gap: 18px; margin-top: 22px; }}
-    .subscription-card, .panel {{ background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 20px; box-shadow: 0 18px 40px rgba(0,0,0,0.22); }}
-    .card-top, .top-row, .key-header {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
-    .badge {{ display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--line); }}
-    .badge-ok {{ background: rgba(86,207,135,0.14); color: #baf0ce; }}
-    .badge-bad {{ background: rgba(240,115,115,0.14); color: #ffc2c2; }}
-    .mono {{ width: 100%; min-height: 86px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-soft); color: var(--text); resize: vertical; font-family: Consolas, monospace; font-size: 13px; }}
-    .actions-row {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }}
-    .btn {{ display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 14px; text-decoration: none; cursor: pointer; border: 1px solid transparent; font-weight: 600; }}
-    .btn-primary {{ background: linear-gradient(135deg, var(--accent), #f0ca78); color: #1d2128; }}
-    .btn-secondary {{ background: transparent; border-color: var(--line); color: var(--text); }}
-    .inline-form {{ margin: 0; }}
+    .panel, .subscription-card {{ background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 20px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }}
+    .panel.soft {{ background: rgba(12, 20, 31, 0.76); }}
+    .tips {{ display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }}
+    .tips li {{ padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); color: var(--muted); line-height: 1.45; }}
+    .copy-tile {{ width: 100%; border: 1px solid var(--line-strong); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); color: var(--text); border-radius: 18px; padding: 16px; text-align: left; cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease; }}
+    .copy-tile:hover {{ transform: translateY(-1px); border-color: rgba(255,255,255,0.18); }}
+    .copy-tile.accent {{ background: linear-gradient(160deg, rgba(242,200,105,0.14), rgba(115,215,203,0.10)); }}
+    .copy-tile.soft {{ background: rgba(255,255,255,0.03); }}
+    .copy-tile.copied {{ border-color: rgba(103,213,145,0.36); box-shadow: 0 0 0 1px rgba(103,213,145,0.12) inset; }}
+    .copy-title {{ display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }}
+    .copy-value {{ display: block; font-family: Consolas, monospace; font-size: 14px; line-height: 1.55; word-break: break-all; }}
+    .copy-caption {{ display: block; margin-top: 10px; font-size: 13px; color: #d8e2eb; }}
+    .card-top, .key-header {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }}
+    .badge {{ display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--line); white-space: nowrap; }}
+    .badge-ok {{ background: rgba(103,213,145,0.14); color: #cdf4db; }}
+    .badge-bad {{ background: rgba(240,115,115,0.14); color: #ffc6c6; }}
     .subkeys {{ display: grid; gap: 12px; margin-top: 16px; }}
     .key-card {{ background: var(--panel-soft); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }}
-    .archived-item {{ padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); color: var(--muted); }}
-    .split {{ display: grid; gap: 18px; grid-template-columns: 1.3fr 0.7fr; margin-top: 22px; }}
-    @media (max-width: 860px) {{ .split {{ grid-template-columns: 1fr; }} .shell {{ padding: 14px; }} }}
+    .actions-row {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }}
+    .btn {{ display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 14px; text-decoration: none; cursor: pointer; border: 1px solid transparent; font-weight: 600; }}
+    .btn-secondary {{ background: transparent; border-color: var(--line-strong); color: var(--text); }}
+    .inline-form {{ margin: 0; }}
+    @media (max-width: 860px) {{
+      .shell {{ padding: 16px 14px 28px; }}
+      .hero-grid {{ grid-template-columns: 1fr; }}
+      h1 {{ font-size: 34px; }}
+      .lead {{ font-size: 16px; }}
+    }}
   </style>
 </head>
 <body>
   <div class="shell">
     <section class="hero">
-      <div class="top-row">
-        <div>
-          <div class="badge badge-ok">🌍 Резервный доступ</div>
-          <h1>Личный аварийный кабинет</h1>
-          <p class="muted">Страница работает вне Telegram, не даёт доступ к админке и не умеет выполнять произвольные команды. Здесь доступны только ваши собственные ссылки доступа и контролируемый перевыпуск ключа.</p>
-        </div>
-      </div>
+      <span class="hero-badge">🌍 Резервный доступ</span>
+      <h1>Личный кабинет на случай, если Telegram недоступен</h1>
+      <p class="muted lead">Здесь можно быстро забрать общую ссылку подписки, скопировать ключ по нужному серверу и заменить его, если он перестал подключаться.</p>
       {notice_block}
-      <div class="split">
+      <div class="hero-grid">
         <div class="panel">
           <h2>{user_name}</h2>
-          <p class="muted">Сохраните эту ссылку заранее. Если Telegram недоступен, по ней можно открыть общую ссылку подписки и безопасно заменить свой ключ.</p>
-          <textarea readonly class="mono" id="reserve-link">{safe_reserve_url}</textarea>
-          <div class="actions-row">
-            <button class="btn btn-primary" type="button" onclick="copyText('reserve-link')">📋 Скопировать резервную ссылку</button>
-            <a class="btn btn-secondary" href="{safe_reserve_url}">🔄 Обновить страницу</a>
-          </div>
+          <p class="muted">Сохраните эту ссылку заранее в заметках или браузере. Она пригодится, если Telegram временно перестанет открываться.</p>
+          {reserve_tile}
         </div>
-        <div class="panel">
-          <h3>Ограничения безопасности</h3>
-          <p class="muted">• ссылка открывает доступ только к вашему профилю;</p>
-          <p class="muted">• действия подписаны токеном и быстро протухают;</p>
-          <p class="muted">• частые перевыпуски режутся лимитом;</p>
-          <p class="muted">• админка, серверные команды и настройки отсюда недоступны.</p>
+        <div class="panel soft">
+          <h3>Что можно сделать здесь</h3>
+          <ul class="tips">
+            <li>🌐 Скопировать общую ссылку подписки и заново импортировать её в клиент.</li>
+            <li>🔑 Забрать отдельный ключ по серверу, если нужен точечный доступ.</li>
+            <li>♻️ Заменить ключ, если он перестал подключаться или работает нестабильно.</li>
+          </ul>
         </div>
       </div>
     </section>
@@ -312,21 +337,34 @@ def _render_access_page(user, notice: str = '') -> str:
     </div>
   </div>
   <script>
-    async function copyText(id) {{
-      const el = document.getElementById(id);
-      if (!el) return;
-      const value = el.value || el.textContent || '';
+    async function copyValue(button) {{
+      const value = button?.dataset?.copy || '';
+      if (!value) return;
+      const caption = button.querySelector('.copy-caption');
+      const original = caption ? caption.textContent : '';
       try {{
         await navigator.clipboard.writeText(value);
       }} catch (e) {{
-        el.focus();
-        el.select();
+        const input = document.createElement('textarea');
+        input.value = value;
+        input.setAttribute('readonly', 'readonly');
+        input.style.position = 'absolute';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
       }}
+      button.classList.add('copied');
+      if (caption) caption.textContent = 'Скопировано';
+      setTimeout(() => {{
+        button.classList.remove('copied');
+        if (caption) caption.textContent = original;
+      }}, 1800);
     }}
   </script>
 </body>
 </html>'''
-
 
 async def subscription_handler(request: web.Request) -> web.Response:
     store: Store = request.app['store']
@@ -424,6 +462,3 @@ def create_subscription_web_app(store: Store, provisioning: ProvisioningService)
     app.router.add_get('/access/{token}', reserve_access_handler)
     app.router.add_post('/access/{token}/key/{key_id}/replace', replace_key_handler)
     return app
-
-
-
