@@ -242,7 +242,7 @@ git push -u origin main
 На сервере в `.env` укажи:
 
 ```env
-BOT_IMAGE=ghcr.io/YOUR_NAME/vpn-sales-bot:latest
+BOT_IMAGE=ghcr.io/your_name/vpn-sales-bot:latest
 ```
 
 ### 4. Как обновлять сервер
