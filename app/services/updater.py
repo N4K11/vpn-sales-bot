@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.metadata
 import re
 from dataclasses import dataclass
@@ -70,12 +71,15 @@ class UpdateService:
             'Authorization': f'Bearer {settings.update_trigger_token}',
         }
         timeout = aiohttp.ClientTimeout(total=20)
-        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-            async with session.get(settings.update_trigger_url) as response:
-                body = (await response.text()).strip()
-                if response.status >= 400:
-                    raise RuntimeError(body or f'HTTP {response.status}')
-        return body or 'Запрос на обновление отправлен.'
+        try:
+            async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+                async with session.get(settings.update_trigger_url) as response:
+                    body = (await response.text()).strip()
+                    if response.status >= 400:
+                        raise RuntimeError(body or f'HTTP {response.status}')
+            return body or 'Запрос на обновление отправлен.'
+        except asyncio.TimeoutError:
+            return 'Запрос на обновление отправлен. Контейнеры уже начали перезапускаться, поэтому ответ от watchtower мог не успеть вернуться.'
 
     def _resolve_repository(self) -> str:
         explicit = (settings.github_repository or '').strip().strip('/')
