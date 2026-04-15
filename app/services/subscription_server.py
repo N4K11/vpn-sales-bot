@@ -54,6 +54,13 @@ def _hidden_not_found() -> web.HTTPNotFound:
     return web.HTTPNotFound(text='Not Found', headers=_security_headers())
 
 
+def _external_request_url(request: web.Request, include_query: bool = True) -> str:
+    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'https').strip()
+    host = (request.headers.get('X-Forwarded-Host') or request.headers.get('Host') or request.host or '').strip()
+    path_qs = request.path_qs if include_query else request.path
+    return f'{proto}://{host}{path_qs}'
+
+
 def _is_internal_request(request: web.Request) -> bool:
     remote = (request.remote or '').strip()
     if not remote:
@@ -202,7 +209,7 @@ async def _fetch_native_subscription_urls(subscription) -> list[str]:
 def _build_subscription_headers(request: web.Request, subscription, url_count: int) -> dict[str, str]:
     headers = _security_headers(extra={'X-Subscription-Servers': str(url_count)})
     headers['Profile-Update-Interval'] = '12'
-    headers['Profile-Web-Page-Url'] = str(request.url.with_query(None))
+    headers['Profile-Web-Page-Url'] = _external_request_url(request, include_query=False)
     expire_at = getattr(subscription, 'ends_at', None)
     expire_ts = int(expire_at.timestamp()) if expire_at else 0
     headers['Subscription-Userinfo'] = f'upload=0; download=0; total=0; expire={expire_ts}'
