@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -79,7 +79,7 @@ class PaymentService:
             'amount': {'value': self._money_value(payment.amount), 'currency': 'RUB'},
             'capture': True,
             'confirmation': {'type': 'redirect', 'return_url': return_url},
-            'description': f'VPN тариф {tariff.name}',
+            'description': f'MyAir {tariff.name}',
             'save_payment_method': False,
             'metadata': {
                 'payment_id': str(payment.id),
@@ -129,7 +129,7 @@ class PaymentService:
             'fiat': 'RUB',
             'amount': self._money_value(payment.amount),
             'accepted_assets': ','.join(assets),
-            'description': f'VPN тариф {tariff.name}',
+            'description': f'MyAir {tariff.name}',
             'payload': str(payment.id),
             'hidden_message': f'Спасибо за оплату. Пользователь {user.telegram_id}',
         }

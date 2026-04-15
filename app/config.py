@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     bot_token: str = Field(alias='BOT_TOKEN')
     admin_ids_raw: str = Field(default='', alias='ADMIN_IDS')
-    bot_username: str = Field(default='vpn_bot', alias='BOT_USERNAME')
+    bot_username: str = Field(default='myair_bot', alias='BOT_USERNAME')
     bot_image: str = Field(default='', alias='BOT_IMAGE')
     app_build_sha: str = Field(default='', alias='APP_BUILD_SHA')
     github_repository: str = Field(default='', alias='GITHUB_REPOSITORY')
@@ -74,4 +74,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

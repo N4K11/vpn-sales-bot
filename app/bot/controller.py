@@ -612,7 +612,7 @@ class BotController:
                     await self._safe_answer_callback(callback, 'Для этого тарифа оплата Stars недоступна.', show_alert=True)
                     return
                 payment = await self.store.create_payment(current_user.id, tariff.id, method, Decimal(tariff.price_stars), 'XTR', payload)
-                title = f'Продление {tariff.name}' if is_extension else f'VPN {tariff.name}'
+                title = f'Продление {tariff.name}' if is_extension else f'MyAir {tariff.name}'
                 description = f'Продление подписки на {tariff.days} дн.' if is_extension else f'Доступ на {tariff.days} дн.'
                 await self._safe_answer_callback(callback, 'Открываю счёт Telegram Stars...')
                 await self.bot.send_invoice(chat_id=callback.from_user.id, title=title, description=description, payload=payment.payload, currency='XTR', provider_token='', prices=[LabeledPrice(label=tariff.name, amount=tariff.price_stars)], start_parameter=f'tariff-{tariff.id}')
@@ -1797,7 +1797,7 @@ class BotController:
         page = await self.store.get_content("main")
         tariffs = await self.store.list_tariffs(only_active=True)
         lines = [
-            f"✦ {self._brand_name()} · личный VPN-кабинет",
+            f"{self._brand_name()} | личный кабинет доступа",
             "",
             (page.body if page else "Быстрый доступ, спокойная навигация и единая подписка без хаоса из десятков сообщений."),
             "",
@@ -1870,7 +1870,7 @@ class BotController:
         page = await self.store.get_content("devices_menu")
         return page.body if page and page.body else (
             "📱 Подключение по устройствам\n\n"
-            "Выберите своё устройство ниже. Внутри будет короткая пошаговая инструкция, как вставить общую ссылку подписки в VPN-клиент.\n\n"
+            'Выберите своё устройство ниже. Внутри будет короткая пошаговая инструкция, как вставить общую ссылку доступа в приложение.\n\n'
             "Общий принцип везде один:\n"
             "• откройте подписку в профиле;\n"
             "• скопируйте общую ссылку;\n"
@@ -1890,9 +1890,9 @@ class BotController:
         if page and page.body:
             return page.body
         guides = {
-            'ios': "📱 iPhone / iPad\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте VPN-клиент, который умеет импорт по URL.\n3. Найдите пункт вроде Import, Subscription, Add from URL.\n4. Вставьте ссылку и подтвердите импорт.\n5. После добавления обновите подписку и подключайтесь к нужному серверу.\n\nЕсли клиент не принимает общую ссылку, откройте конкретный серверный ключ внутри подписки и импортируйте его отдельно.",
-            'android': "🤖 Android\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте VPN-клиент и выберите импорт из буфера, URL или subscription.\n3. Вставьте ссылку и сохраните конфигурацию.\n4. Обновите список серверов внутри клиента.\n5. Выберите нужный сервер и подключайтесь.\n\nЕсли приложение просит формат, обычно нужен URL / Subscription, а не текстовый файл.",
-            'windows': "🪟 Windows\n\n1. Скопируйте общую ссылку в боте.\n2. В VPN-клиенте найдите Import profile, Add subscription или Import from URL.\n3. Вставьте ссылку и сохраните профиль.\n4. Запустите обновление подписки, если клиент это поддерживает.\n5. После импорта выберите сервер из списка и подключайтесь.\n\nЕсли подписка не импортируется, можно открыть отдельный серверный ключ и добавить его вручную.",
+            'ios': 'iPhone / iPad\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте приложение, которое умеет импорт по URL.\n3. Найдите пункт вроде Import, Subscription, Add from URL.\n4. Вставьте ссылку и подтвердите импорт.\n5. После добавления обновите подписку и подключайтесь к нужному серверу.\n\nЕсли клиент не принимает общую ссылку, откройте конкретный серверный ключ внутри подписки и импортируйте его отдельно.',
+            'android': 'Android\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте приложение и выберите импорт из буфера, URL или subscription.\n3. Вставьте ссылку и сохраните конфигурацию.\n4. Обновите список серверов внутри приложения.\n5. Выберите нужный сервер и подключайтесь.\n\nЕсли приложение просит формат, обычно нужен URL / Subscription, а не текстовый файл.',
+            'windows': 'Windows\n\n1. Скопируйте общую ссылку в боте.\n2. В приложении найдите Import profile, Add subscription или Import from URL.\n3. Вставьте ссылку и сохраните профиль.\n4. Запустите обновление подписки, если приложение это поддерживает.\n5. После импорта выберите сервер из списка и подключайтесь.\n\nЕсли подписка не импортируется, можно открыть отдельный серверный ключ и добавить его вручную.',
             'macos': "🍎 macOS\n\n1. Скопируйте общую ссылку из подписки.\n2. Откройте клиент и добавьте подписку через URL.\n3. Вставьте ссылку, сохраните профиль и дождитесь загрузки серверов.\n4. При необходимости обновите подписку вручную внутри клиента.\n5. Выберите удобный сервер и подключайтесь.\n\nЕсли клиент работает только с одиночными конфигами, откройте внутри подписки конкретный серверный ключ.",
         }
         return guides.get(platform_key, guides['windows'])
@@ -2231,7 +2231,7 @@ class BotController:
         ] or [["Нет данных", "0", "0 ₽", "0 ₽", "not_configured"]]
         html = "".join([
             "<html><head><meta charset=\"utf-8\"></head><body>",
-            f"<h2>Экспорт аналитики VPN-бота</h2><p>Сформировано: {escape(datetime.now().strftime('%d.%m.%Y %H:%M'))}</p>",
+            f"<h2>Экспорт аналитики MyAir</h2><p>Сформировано: {escape(datetime.now().strftime('%d.%m.%Y %H:%M'))}</p>",
             table_html("Сводка", ["Показатель", "Значение"], summary_rows),
             table_html("Серверные расходы", ["Сервер", "Сумма / месяц", "Следующая оплата", "Период", "Напоминать за", "Статус"], cost_rows),
             table_html("Unit-экономика серверов", ["Сервер", "Активных пользователей", "Расход / месяц", "Себестоимость на 1 пользователя", "Статус"], unit_rows),
@@ -3385,15 +3385,12 @@ class BotController:
         return lines
     def _invite_link(self, user) -> str:
         username = settings.bot_username.strip().replace("@", "")
-        if not username or username == "your_vpn_bot":
+        if not username or username == "your_myair_bot":
             return user.invite_code
         return f"https://t.me/{username}?start={user.invite_code}"
 
     def _brand_name(self) -> str:
-        username = settings.bot_username.strip().replace("@", "")
-        if not username or username == "your_vpn_bot":
-            return "AirVPN"
-        return username.replace("_", " ").title()
+        return "MyAir"
 
     def _payment_method_title(self, method: str) -> str:
         return {

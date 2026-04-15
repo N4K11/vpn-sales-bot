@@ -7,7 +7,7 @@ from aiogram.types import CopyTextButton, InlineKeyboardButton, KeyboardButton, 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 PROFILE_LABEL = '👤 Мой профиль'
-BUY_LABEL = '🛒 Купить VPN'
+BUY_LABEL = 'Подключить Air'
 HELP_LABEL = '❓ Справка'
 REFERRAL_LABEL = '🎁 Рефералы'
 TRIAL_LABEL = '🧪 Пробный доступ'
