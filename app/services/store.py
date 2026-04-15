@@ -90,11 +90,9 @@ DEFAULT_CONTENT: dict[str, tuple[str, str]] = {
     'button_pay_crypto': ('Кнопка «Crypto» — выбор способа оплаты', '🪙 Crypto'),
     'button_pay_balance': ('Кнопка «С баланса» — выбор способа оплаты', '💰 С баланса'),
     'button_pay_open_invoice': ('Кнопка «Перейти к оплате» — экран счёта', '💳 Перейти к оплате'),
-    'button_subscription_copy': ('Кнопка «Скопировать ссылку» — карточка подписки', '📋 Скопировать ссылку'),
     'button_subscription_qr': ('Кнопка «QR подписки» — карточка подписки', '📷 QR подписки'),
     'button_subscription_extend': ('Кнопка «Продлить подписку» — карточка подписки и ключа', '🕒 Продлить подписку'),
     'button_reserve_open': ('Кнопка «Резервный кабинет» — подписка и результат выдачи', '🌍 Резервный кабинет'),
-    'button_reserve_copy': ('Кнопка «Скопировать резервную ссылку» — подписка и результат выдачи', '📋 Скопировать резервную ссылку'),
     'button_reserve_qr': ('Кнопка «QR резерва» — карточка подписки', '📷 QR резерва'),
     'button_key_copy': ('Кнопка «Скопировать ключ» — карточка ключа', '📋 Скопировать ключ'),
     'button_key_qr': ('Кнопка «QR ключа» — карточка ключа', '📷 QR ключа'),
@@ -103,8 +101,8 @@ DEFAULT_CONTENT: dict[str, tuple[str, str]] = {
 }
 
 USER_TEXT_CONTENT_KEYS: list[str] = ['main', 'profile', 'buy', 'help', 'referral', 'trial', 'devices_menu', 'guide_ios', 'guide_android', 'guide_windows', 'guide_macos', 'subscription_detail', 'key_detail', 'activation_result']
-BUTTON_LABEL_PAGE_KEYS: dict[str, str] = {'nav_profile': 'button_nav_profile', 'nav_buy': 'button_nav_buy', 'nav_help': 'button_nav_help', 'nav_referral': 'button_nav_referral', 'nav_trial': 'button_nav_trial', 'nav_home': 'button_nav_home', 'nav_back': 'button_nav_back', 'help_channel': 'button_help_channel', 'help_support': 'button_help_support', 'referral_copy': 'button_referral_copy', 'trial_activate': 'button_trial_activate', 'help_devices': 'button_help_devices', 'guide_ios': 'button_guide_ios', 'guide_android': 'button_guide_android', 'guide_windows': 'button_guide_windows', 'guide_macos': 'button_guide_macos', 'pay_stars': 'button_pay_stars', 'pay_yookassa': 'button_pay_yookassa', 'pay_crypto': 'button_pay_crypto', 'pay_balance': 'button_pay_balance', 'pay_open_invoice': 'button_pay_open_invoice', 'subscription_copy': 'button_subscription_copy', 'subscription_qr': 'button_subscription_qr', 'subscription_extend': 'button_subscription_extend', 'reserve_open': 'button_reserve_open', 'reserve_copy': 'button_reserve_copy', 'reserve_qr': 'button_reserve_qr', 'key_copy': 'button_key_copy', 'key_qr': 'button_key_qr', 'key_replace': 'button_key_replace', 'key_delete': 'button_key_delete'}
-USER_BUTTON_CONTENT_KEYS: list[str] = ['button_nav_profile', 'button_nav_buy', 'button_nav_help', 'button_nav_referral', 'button_nav_trial', 'button_nav_home', 'button_nav_back', 'button_help_channel', 'button_help_support', 'button_referral_copy', 'button_trial_activate', 'button_help_devices', 'button_guide_ios', 'button_guide_android', 'button_guide_windows', 'button_guide_macos', 'button_pay_stars', 'button_pay_yookassa', 'button_pay_crypto', 'button_pay_balance', 'button_pay_open_invoice', 'button_subscription_copy', 'button_subscription_qr', 'button_subscription_extend', 'button_reserve_open', 'button_reserve_copy', 'button_reserve_qr', 'button_key_copy', 'button_key_qr', 'button_key_replace', 'button_key_delete']
+BUTTON_LABEL_PAGE_KEYS: dict[str, str] = {'nav_profile': 'button_nav_profile', 'nav_buy': 'button_nav_buy', 'nav_help': 'button_nav_help', 'nav_referral': 'button_nav_referral', 'nav_trial': 'button_nav_trial', 'nav_home': 'button_nav_home', 'nav_back': 'button_nav_back', 'help_channel': 'button_help_channel', 'help_support': 'button_help_support', 'referral_copy': 'button_referral_copy', 'trial_activate': 'button_trial_activate', 'help_devices': 'button_help_devices', 'guide_ios': 'button_guide_ios', 'guide_android': 'button_guide_android', 'guide_windows': 'button_guide_windows', 'guide_macos': 'button_guide_macos', 'pay_stars': 'button_pay_stars', 'pay_yookassa': 'button_pay_yookassa', 'pay_crypto': 'button_pay_crypto', 'pay_balance': 'button_pay_balance', 'pay_open_invoice': 'button_pay_open_invoice', 'subscription_qr': 'button_subscription_qr', 'subscription_extend': 'button_subscription_extend', 'reserve_open': 'button_reserve_open', 'reserve_qr': 'button_reserve_qr', 'key_copy': 'button_key_copy', 'key_qr': 'button_key_qr', 'key_replace': 'button_key_replace', 'key_delete': 'button_key_delete'}
+USER_BUTTON_CONTENT_KEYS: list[str] = ['button_nav_profile', 'button_nav_buy', 'button_nav_help', 'button_nav_referral', 'button_nav_trial', 'button_nav_home', 'button_nav_back', 'button_help_channel', 'button_help_support', 'button_referral_copy', 'button_trial_activate', 'button_help_devices', 'button_guide_ios', 'button_guide_android', 'button_guide_windows', 'button_guide_macos', 'button_pay_stars', 'button_pay_yookassa', 'button_pay_crypto', 'button_pay_balance', 'button_pay_open_invoice', 'button_subscription_qr', 'button_subscription_extend', 'button_reserve_open', 'button_reserve_qr', 'button_key_copy', 'button_key_qr', 'button_key_replace', 'button_key_delete']
 CONTENT_PAGE_GROUPS: dict[str, list[str]] = {"texts": USER_TEXT_CONTENT_KEYS, "buttons": USER_BUTTON_CONTENT_KEYS}
 BUTTON_LABEL_DEFAULTS: dict[str, str] = {label_key: DEFAULT_CONTENT[page_key][1] for label_key, page_key in BUTTON_LABEL_PAGE_KEYS.items()}
 
@@ -1515,25 +1513,3 @@ class Store:
         error_text = (error or "Неизвестная ошибка").strip() or "Неизвестная ошибка"
         logger.warning("Server check failed for %s: %s", server_id, error_text)
         await self.update_server_health(server_id, "offline", 0, 0, error_text)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
