@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime
 from html import escape
 from ipaddress import ip_address
 from time import monotonic
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 import aiohttp
 from aiohttp import web
@@ -36,7 +37,7 @@ _REPLACE_COOLDOWN_SECONDS = 45.0
 _LAST_REPLACE_ACTIONS: dict[tuple[int, int], float] = {}
 
 
-def _security_headers(html: bool = False, extra: dict[str, str] | None = None) -> dict[str, str]:
+def _security_headers(html: bool = False, extra: dict[str, str] | None = None, *, secure: bool = False, csp_nonce: str | None = None) -> dict[str, str]:
     headers = {
         'Cache-Control': 'no-store, no-cache, must-revalidate, private',
         'Pragma': 'no-cache',
@@ -45,16 +46,44 @@ def _security_headers(html: bool = False, extra: dict[str, str] | None = None) -
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer',
         'X-Robots-Tag': 'noindex, nofollow, noarchive',
+        'X-Permitted-Cross-Domain-Policies': 'none',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        'Origin-Agent-Cluster': '?1',
+        'Permissions-Policy': 'accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), microphone=(), payment=(), usb=()'
     }
+    if secure:
+        headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     if html:
-        headers['Content-Security-Policy'] = "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';"
+        style_src = "'self'"
+        script_src = "'self'"
+        if csp_nonce:
+            style_src += f" 'nonce-{csp_nonce}'"
+            script_src += f" 'nonce-{csp_nonce}'"
+        else:
+            style_src += " 'unsafe-inline'"
+            script_src += " 'unsafe-inline'"
+        headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "base-uri 'none'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "img-src 'self' data:; "
+            f"style-src {style_src}; "
+            f"script-src {script_src}; "
+            "connect-src 'self'; "
+            "object-src 'none'; "
+            "manifest-src 'none'; "
+            "worker-src 'none';"
+        )
     if extra:
         headers.update(extra)
     return headers
 
 
-def _hidden_not_found() -> web.HTTPNotFound:
-    return web.HTTPNotFound(text='Not Found', headers=_security_headers())
+def _hidden_not_found(request: web.Request | None = None) -> web.HTTPNotFound:
+    secure = _is_secure_request(request) if request is not None else False
+    return web.HTTPNotFound(text='Not Found', headers=_security_headers(secure=secure))
 
 
 def _external_request_url(request: web.Request, include_query: bool = True) -> str:
@@ -62,6 +91,37 @@ def _external_request_url(request: web.Request, include_query: bool = True) -> s
     host = (request.headers.get('X-Forwarded-Host') or request.headers.get('Host') or request.host or '').strip()
     path_qs = request.path_qs if include_query else request.path
     return f'{proto}://{host}{path_qs}'
+
+
+def _is_secure_request(request: web.Request | None) -> bool:
+    if request is None:
+        return False
+    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or '').strip().lower()
+    return proto == 'https'
+
+
+def _normalized_host(value: str) -> str:
+    raw = (value or '').strip().lower()
+    if not raw:
+        return ''
+    if raw.startswith('['):
+        raw = raw.split(']', 1)[0].lstrip('[')
+    else:
+        raw = raw.split(':', 1)[0]
+    return raw.strip()
+
+
+def _allowed_hosts() -> set[str]:
+    hosts: set[str] = {'localhost', '127.0.0.1'}
+    public_base = (settings.public_base_url or '').strip()
+    if public_base:
+        host = urlsplit(public_base).hostname
+        if host:
+            hosts.add(host.strip().lower())
+    subscription_host = (settings.subscription_host or '').strip().lower()
+    if subscription_host and subscription_host not in {'0.0.0.0', '::'}:
+        hosts.add(subscription_host)
+    return hosts
 
 
 def _is_internal_request(request: web.Request) -> bool:
@@ -73,6 +133,13 @@ def _is_internal_request(request: web.Request) -> bool:
     except ValueError:
         return False
     return bool(addr.is_loopback or addr.is_private)
+
+
+def _is_allowed_host(request: web.Request) -> bool:
+    if _is_internal_request(request):
+        return True
+    host = _normalized_host(request.headers.get('X-Forwarded-Host') or request.headers.get('Host') or request.host or '')
+    return bool(host and host in _allowed_hosts())
 
 
 def _is_active_subscription(subscription) -> bool:
@@ -111,7 +178,7 @@ def _render_copy_tile(title: str, value: str, caption: str, tone: str = '') -> s
         return ''
     tone_class = f' {tone}' if tone else ''
     return (
-        f'<button class="copy-tile{tone_class}" type="button" data-copy="{escape(link)}" onclick="copyValue(this)">'
+        f'<button class="copy-tile{tone_class}" type="button" data-copy="{escape(link)}">'
         f'<span class="copy-title">{escape(title)}</span>'
         f'<span class="copy-value">{escape(_link_preview(link))}</span>'
         f'<span class="copy-caption">{escape(caption)}</span>'
@@ -121,6 +188,7 @@ def _render_copy_tile(title: str, value: str, caption: str, tone: str = '') -> s
 
 def _server_sort_name(key) -> str:
     return str(getattr(getattr(key, 'server', None), 'name', '') or '').strip().lower()
+
 
 def _render_key_card(key, subscription, access_token: str, user_id: int) -> str:
     key_id = getattr(key, 'id', 0)
@@ -159,12 +227,21 @@ def _render_subscription_card(subscription, access_token: str, user_id: int) -> 
     key_cards = ''.join(_render_key_card(key, subscription, access_token, user_id) for key in keys)
     servers_preview = escape(', '.join(names) if names else 'Серверы пока не подтянулись')
     status_badge = '<span class="badge badge-ok">🟢 Активна</span>' if _is_active_subscription(subscription) else '<span class="badge badge-bad">🔴 Истекла</span>'
-    subscription_tile = _render_copy_tile('Общая ссылка подписки', sub_url, 'Нажмите, чтобы скопировать адрес для клиента', tone='accent')
+    subscription_tile = _render_copy_tile('Общая ссылка подписки', sub_url, 'Нажмите, чтобы скопировать subscription URL', tone='accent')
     if not subscription_tile:
         subscription_tile = '<p class="muted compact">Общая ссылка пока не сформировалась.</p>'
+    active_keys = sum(1 for key in keys if _is_active_key(key, subscription))
+    server_count = len(names) or len(keys)
+    meta_row = (
+        '<div class="meta-row">'
+        f'<span class="meta-pill">🌐 {server_count} сервер(ов)</span>'
+        f'<span class="meta-pill">🔑 {active_keys}/{len(keys)} ключей</span>'
+        '</div>'
+    ) if keys else ''
     return (
         '<section class="subscription-card">'
         f'<div class="card-top"><div><h3>{escape(_subscription_title(subscription))}</h3><p class="muted compact">До {_format_datetime(getattr(subscription, "ends_at", None))}</p></div>{status_badge}</div>'
+        f'{meta_row}'
         f'<p class="muted">🌐 Серверы: {servers_preview}</p>'
         f'{subscription_tile}'
         '<div class="subkeys">'
@@ -246,7 +323,7 @@ def _choose_subscription_format(request: web.Request) -> str:
     return 'base64'
 
 
-def _render_access_page(user, notice: str = '') -> str:
+def _render_access_page(user, notice: str = '', csp_nonce: str = '') -> str:
     reserve_url = build_reserve_access_url(user)
     active_subscriptions = [sub for sub in getattr(user, 'subscriptions', []) or [] if _is_active_subscription(sub)]
     active_subscriptions.sort(key=lambda item: getattr(item, 'ends_at', datetime.min), reverse=True)
@@ -255,7 +332,15 @@ def _render_access_page(user, notice: str = '') -> str:
     notice_block = f'<div class="notice">{escape(notice)}</div>' if notice else ''
     user_id = int(getattr(user, 'id', 0) or 0)
     rendered_cards: list[str] = []
+    active_keys = 0
+    server_names: set[str] = set()
     for subscription in active_subscriptions:
+        for key in getattr(subscription, 'keys', []) or []:
+            if _is_active_key(key, subscription):
+                active_keys += 1
+        for name in subscription_server_names(subscription):
+            if name:
+                server_names.add(name)
         try:
             rendered_cards.append(_render_subscription_card(subscription, token, user_id))
         except Exception:
@@ -268,7 +353,7 @@ def _render_access_page(user, notice: str = '') -> str:
             )
     active_cards = ''.join(rendered_cards)
     user_name = escape(getattr(user, 'full_name', '') or getattr(user, 'username', '') or str(getattr(user, 'telegram_id', 'Пользователь')))
-    reserve_tile = _render_copy_tile('Личная ссылка на кабинет', reserve_url, 'Нажмите, чтобы скопировать и сохраните отдельно', tone='accent')
+    reserve_tile = _render_copy_tile('Личная резервная ссылка', reserve_url, 'Нажмите, чтобы скопировать и сохраните отдельно', tone='accent')
     if not reserve_tile:
         reserve_tile = '<p class="muted compact">Резервная ссылка сейчас временно недоступна.</p>'
     return f'''<!doctype html>
@@ -277,41 +362,55 @@ def _render_access_page(user, notice: str = '') -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Резервный доступ</title>
-  <style>
+  <style nonce="{escape(csp_nonce)}">
     :root {{
-      --bg: #0b1320;
-      --bg-soft: #101c2a;
-      --panel: rgba(15, 24, 36, 0.94);
-      --panel-soft: rgba(27, 39, 53, 0.92);
+      --bg: #09111a;
+      --bg-soft: #0f1a26;
+      --panel: rgba(12, 20, 31, 0.92);
+      --panel-soft: rgba(18, 29, 42, 0.90);
+      --panel-strong: rgba(18, 31, 46, 0.96);
       --line: rgba(255,255,255,0.08);
-      --line-strong: rgba(255,255,255,0.12);
+      --line-strong: rgba(255,255,255,0.14);
       --text: #eef5fb;
-      --muted: #9fb2c5;
+      --muted: #9cb2c7;
       --accent: #f2c869;
       --accent-2: #73d7cb;
       --ok: #67d591;
+      --danger: #ff9b9b;
+      --shadow: 0 24px 64px rgba(0,0,0,0.34);
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; font-family: Segoe UI, Arial, sans-serif; color: var(--text); background: radial-gradient(circle at top, #183247 0%, var(--bg) 48%, #08111d 100%); }}
-    .shell {{ max-width: 1080px; margin: 0 auto; padding: 28px 20px 40px; }}
-    .hero {{ background: linear-gradient(145deg, rgba(242,200,105,0.12), rgba(115,215,203,0.10)); border: 1px solid var(--line); border-radius: 28px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.30); }}
+    body {{ margin: 0; font-family: Segoe UI, Arial, sans-serif; color: var(--text); background:
+      radial-gradient(circle at top left, rgba(115,215,203,0.18), transparent 32%),
+      radial-gradient(circle at top right, rgba(242,200,105,0.16), transparent 28%),
+      linear-gradient(180deg, #0a131d 0%, #071018 100%); }}
+    .shell {{ max-width: 1120px; margin: 0 auto; padding: 28px 18px 42px; }}
+    .hero {{ position: relative; overflow: hidden; background: linear-gradient(145deg, rgba(242,200,105,0.10), rgba(115,215,203,0.09)); border: 1px solid var(--line); border-radius: 30px; padding: 24px; box-shadow: var(--shadow); }}
+    .hero::after {{ content: ''; position: absolute; inset: auto -60px -100px auto; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(115,215,203,0.12), transparent 70%); pointer-events: none; }}
+    .hero-top {{ display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }}
     .hero-badge {{ display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(115,215,203,0.14); border: 1px solid rgba(115,215,203,0.20); color: #dff8f3; font-size: 14px; }}
+    .hero-note {{ color: var(--muted); font-size: 13px; }}
     h1, h2, h3, p {{ margin-top: 0; }}
-    h1 {{ margin: 16px 0 12px; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; }}
-    h2 {{ font-size: 28px; margin-bottom: 10px; }}
-    h3 {{ font-size: 24px; margin-bottom: 8px; }}
-    .lead {{ font-size: 18px; line-height: 1.55; max-width: 780px; }}
+    h1 {{ margin: 16px 0 10px; font-size: clamp(34px, 5vw, 50px); line-height: 1.04; letter-spacing: -0.03em; }}
+    h2 {{ font-size: 22px; margin-bottom: 10px; }}
+    h3 {{ font-size: 22px; margin-bottom: 8px; }}
+    .lead {{ font-size: 17px; line-height: 1.58; max-width: 760px; }}
     .muted {{ color: var(--muted); }}
     .compact {{ margin-bottom: 0; }}
     .notice {{ margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: rgba(115,215,203,0.12); border: 1px solid rgba(115,215,203,0.22); }}
-    .hero-grid {{ display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; margin-top: 24px; }}
+    .stats-row {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }}
+    .stat {{ background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }}
+    .stat strong {{ display: block; font-size: 24px; margin-top: 6px; }}
+    .stat-label {{ color: var(--muted); font-size: 13px; }}
+    .hero-grid {{ display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-top: 20px; }}
     .grid {{ display: grid; gap: 18px; margin-top: 22px; }}
     .panel, .subscription-card {{ background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 20px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }}
-    .panel.soft {{ background: rgba(12, 20, 31, 0.76); }}
-    .tips {{ display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }}
-    .tips li {{ padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); color: var(--muted); line-height: 1.45; }}
-    .copy-tile {{ width: 100%; border: 1px solid var(--line-strong); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); color: var(--text); border-radius: 18px; padding: 16px; text-align: left; cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease; }}
-    .copy-tile:hover {{ transform: translateY(-1px); border-color: rgba(255,255,255,0.18); }}
+    .panel-strong {{ background: var(--panel-strong); }}
+    .panel-soft {{ background: rgba(10, 18, 28, 0.76); }}
+    .mini-steps {{ display: grid; gap: 10px; margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.5; }}
+    .mini-steps li {{ padding-left: 4px; }}
+    .copy-tile {{ width: 100%; border: 1px solid var(--line-strong); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); color: var(--text); border-radius: 18px; padding: 16px; text-align: left; cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease; }}
+    .copy-tile:hover, .copy-tile:focus-visible {{ transform: translateY(-1px); border-color: rgba(255,255,255,0.20); box-shadow: 0 12px 30px rgba(0,0,0,0.18); outline: none; }}
     .copy-tile.accent {{ background: linear-gradient(160deg, rgba(242,200,105,0.14), rgba(115,215,203,0.10)); }}
     .copy-tile.soft {{ background: rgba(255,255,255,0.03); }}
     .copy-tile.copied {{ border-color: rgba(103,213,145,0.36); box-shadow: 0 0 0 1px rgba(103,213,145,0.12) inset; }}
@@ -319,6 +418,8 @@ def _render_access_page(user, notice: str = '') -> str:
     .copy-value {{ display: block; font-family: Consolas, monospace; font-size: 14px; line-height: 1.55; word-break: break-all; }}
     .copy-caption {{ display: block; margin-top: 10px; font-size: 13px; color: #d8e2eb; }}
     .card-top, .key-header {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }}
+    .meta-row {{ display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }}
+    .meta-pill {{ display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); color: var(--muted); font-size: 13px; }}
     .badge {{ display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--line); white-space: nowrap; }}
     .badge-ok {{ background: rgba(103,213,145,0.14); color: #cdf4db; }}
     .badge-bad {{ background: rgba(240,115,115,0.14); color: #ffc6c6; }}
@@ -330,7 +431,7 @@ def _render_access_page(user, notice: str = '') -> str:
     .inline-form {{ margin: 0; }}
     @media (max-width: 860px) {{
       .shell {{ padding: 16px 14px 28px; }}
-      .hero-grid {{ grid-template-columns: 1fr; }}
+      .hero-grid, .stats-row {{ grid-template-columns: 1fr; }}
       h1 {{ font-size: 34px; }}
       .lead {{ font-size: 16px; }}
     }}
@@ -339,23 +440,31 @@ def _render_access_page(user, notice: str = '') -> str:
 <body>
   <div class="shell">
     <section class="hero">
-      <span class="hero-badge">🌍 Резервный доступ</span>
-      <h1>Личный кабинет на случай, если Telegram недоступен</h1>
-      <p class="muted lead">Здесь можно быстро забрать общую ссылку подписки, скопировать ключ по нужному серверу и заменить его, если он перестал подключаться.</p>
+      <div class="hero-top">
+        <span class="hero-badge">🌍 Резервный кабинет</span>
+        <span class="hero-note">Работает только по вашей личной ссылке</span>
+      </div>
+      <h1>Быстрый доступ к подписке без Telegram</h1>
+      <p class="muted lead">Если Telegram временно не открывается, здесь можно быстро вернуть доступ: скопировать общую подписку, открыть ключ по нужному серверу и заменить его, если подключение перестало работать.</p>
       {notice_block}
+      <div class="stats-row">
+        <div class="stat"><span class="stat-label">Активных подписок</span><strong>{len(active_subscriptions)}</strong></div>
+        <div class="stat"><span class="stat-label">Рабочих ключей</span><strong>{active_keys}</strong></div>
+        <div class="stat"><span class="stat-label">Доступных серверов</span><strong>{len(server_names)}</strong></div>
+      </div>
       <div class="hero-grid">
-        <div class="panel">
+        <div class="panel panel-strong">
           <h2>{user_name}</h2>
-          <p class="muted">Сохраните эту ссылку заранее в заметках или браузере. Она пригодится, если Telegram временно перестанет открываться.</p>
+          <p class="muted">Сохраните эту ссылку заранее в заметках или в браузере. Она пригодится, если Telegram временно перестанет открываться.</p>
           {reserve_tile}
         </div>
-        <div class="panel soft">
-          <h3>Что можно сделать здесь</h3>
-          <ul class="tips">
-            <li>🌐 Скопировать общую ссылку подписки и заново импортировать её в клиент.</li>
-            <li>🔑 Забрать отдельный ключ по серверу, если нужен точечный доступ.</li>
-            <li>♻️ Заменить ключ, если он перестал подключаться или работает нестабильно.</li>
-          </ul>
+        <div class="panel panel-soft">
+          <h3>Что делать в первую очередь</h3>
+          <ol class="mini-steps">
+            <li>Откройте нужную подписку ниже и скопируйте общую ссылку.</li>
+            <li>Если нужен конкретный сервер, заберите отдельный ключ из карточки.</li>
+            <li>Если ключ перестал подключаться, нажмите «Заменить ключ» и импортируйте новый.</li>
+          </ol>
         </div>
       </div>
     </section>
@@ -364,7 +473,7 @@ def _render_access_page(user, notice: str = '') -> str:
       {active_cards or '<div class="panel"><h3>Активных подписок пока нет</h3><p class="muted">Когда появится активный доступ, он будет показан здесь.</p></div>'}
     </div>
   </div>
-  <script>
+  <script nonce="{escape(csp_nonce)}">
     async function copyValue(button) {{
       const value = button?.dataset?.copy || '';
       if (!value) return;
@@ -390,6 +499,10 @@ def _render_access_page(user, notice: str = '') -> str:
         if (caption) caption.textContent = original;
       }}, 1800);
     }}
+
+    document.querySelectorAll('[data-copy]').forEach((button) => {{
+      button.addEventListener('click', () => copyValue(button));
+    }});
   </script>
 </body>
 </html>'''
@@ -431,8 +544,9 @@ async def reserve_access_handler(request: web.Request) -> web.Response:
     if not user:
         raise _hidden_not_found()
     notice = (request.query.get('notice') or '').strip()
-    html = _render_access_page(user, notice=notice)
-    return web.Response(text=html, content_type='text/html', charset='utf-8', headers=_security_headers(html=True))
+    csp_nonce = secrets.token_urlsafe(18)
+    html = _render_access_page(user, notice=notice, csp_nonce=csp_nonce)
+    return web.Response(text=html, content_type='text/html', charset='utf-8', headers=_security_headers(html=True, secure=_is_secure_request(request), csp_nonce=csp_nonce))
 
 
 async def replace_key_handler(request: web.Request) -> web.Response:
@@ -452,7 +566,8 @@ async def replace_key_handler(request: web.Request) -> web.Response:
     form = await request.post()
     action_token = (form.get('action_token') or '').strip()
     if not verify_reserve_action_token(action_token, user_id=user_id, key_id=key_id, action='replace'):
-        raise web.HTTPForbidden(text='Action token expired. Reload the page and try again.', headers=_security_headers())
+        notice = quote_plus('Страница обновилась. Попробуйте заменить ключ ещё раз.')
+        raise web.HTTPFound(location=f'/access/{token}?notice={notice}')
 
     key = await store.get_key_details(key_id)
     if not key or not key.subscription or key.subscription.user_id != user_id:
@@ -477,12 +592,29 @@ async def replace_key_handler(request: web.Request) -> web.Response:
 
 async def health_handler(request: web.Request) -> web.Response:
     if not _is_internal_request(request):
-        raise _hidden_not_found()
-    return web.Response(text='ok', content_type='text/plain', charset='utf-8', headers=_security_headers())
+        raise _hidden_not_found(request)
+    return web.Response(text='ok', content_type='text/plain', charset='utf-8', headers=_security_headers(secure=_is_secure_request(request)))
+
+
+@web.middleware
+async def stealth_surface_middleware(request: web.Request, handler):
+    if not _is_allowed_host(request):
+        raise _hidden_not_found(request)
+    if not _is_internal_request(request) and not _is_secure_request(request):
+        raise _hidden_not_found(request)
+    try:
+        return await handler(request)
+    except web.HTTPException as exc:
+        if exc.status in {403, 404, 405}:
+            raise _hidden_not_found(request)
+        raise
+    except Exception:
+        logger.exception('Subscription web app request failed: %s %s', request.method, request.path_qs)
+        raise _hidden_not_found(request)
 
 
 def create_subscription_web_app(store: Store, provisioning: ProvisioningService) -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[stealth_surface_middleware])
     app['store'] = store
     app['provisioning'] = provisioning
     app.router.add_get('/healthz', health_handler)
