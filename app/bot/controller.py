@@ -2388,9 +2388,7 @@ class BotController:
             lines.extend(['', '⚠️ Подписка создана, но активные ключи пока не подтянулись. Проверьте панели 3x-ui и попробуйте позже.'])
             return "\n".join(lines)
         lines.extend(['', *self._subscription_link_lines(subscription, reserve_url=reserve_url)])
-        if reserve_url:
-            lines.extend(['', 'Резервный кабинет ниже лучше сохранить заранее, чтобы доступ не потерялся даже без Telegram.'])
-        lines.extend(['', 'Ниже можно скопировать адрес подписки, открыть резервный кабинет и при необходимости посмотреть отдельные ключи по серверам.'])
+        lines.extend(['', 'Откройте подписку кнопкой ниже, если нужно посмотреть отдельные ключи по серверам или открыть QR-код подписки.'])
         return "\n".join(lines)
 
     def _render_tariffs_admin(self, tariffs) -> str:
@@ -2859,15 +2857,15 @@ class BotController:
                 "🌐 Общая ссылка подписки:",
                 url,
                 "",
-                "Импортируйте её в клиент с поддержкой Subscription URL, чтобы получить все активные серверы сразу.",
-                "Если нужно скопировать адрес в Telegram, зажмите ссылку в тексте сообщения.",
+                "Добавьте эту ссылку в клиент с поддержкой Subscription URL, чтобы сразу получить все активные серверы.",
+                "Если Telegram не даёт быстро скопировать адрес, зажмите ссылку в тексте сообщения.",
             ]
             if reserve_url:
                 lines.extend([
                     "",
-                    "🌍 Резервный доступ вне Telegram:",
+                    "🌍 Резервный кабинет:",
                     reserve_url,
-                    "Сохраните эту ссылку заранее. По ней можно открыть личный кабинет вне Telegram и при необходимости заменить ключ.",
+                    "Сохраните эту ссылку заранее. Через неё можно открыть свой кабинет даже без Telegram и заменить ключ при необходимости.",
                 ])
             return lines
         return [
@@ -2879,11 +2877,8 @@ class BotController:
         return subscription_detail_keyboard(
             back_callback=self._subscription_back_callback(context),
             key_actions=self._key_action_rows(subscription, context),
-            copy_value=build_subscription_url(subscription) if self._is_subscription_active(subscription) else None,
             extend_callback=(f"buy:extend:{subscription.id}" if self._subscription_owner_can_extend(viewer_id, subscription) else None),
-            reserve_url=reserve_url,
             qr_callback=(f"qr:sub:{subscription.id}" if self._is_subscription_active(subscription) and build_subscription_url(subscription) else None),
-            reserve_qr_callback=(f"qr:reserve:{subscription.user_id}" if reserve_url and getattr(subscription, 'user_id', None) else None),
             labels=await self._user_button_labels(),
         )
 

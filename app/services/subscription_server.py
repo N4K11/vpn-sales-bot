@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from html import escape
 from ipaddress import ip_address
@@ -28,6 +29,8 @@ from app.services.subscription_links import (
     verify_reserve_action_token,
 )
 
+
+logger = logging.getLogger(__name__)
 
 _REPLACE_COOLDOWN_SECONDS = 45.0
 _LAST_REPLACE_ACTIONS: dict[tuple[int, int], float] = {}
@@ -115,6 +118,10 @@ def _render_copy_tile(title: str, value: str, caption: str, tone: str = '') -> s
         '</button>'
     )
 
+
+def _server_sort_name(key) -> str:
+    return str(getattr(getattr(key, 'server', None), 'name', '') or '').strip().lower()
+
 def _render_key_card(key, subscription, access_token: str, user_id: int) -> str:
     key_id = getattr(key, 'id', 0)
     access_url = (getattr(key, 'access_url', '') or '').strip()
@@ -148,7 +155,7 @@ def _render_subscription_card(subscription, access_token: str, user_id: int) -> 
     sub_url = build_subscription_url(subscription)
     names = subscription_server_names(subscription)
     keys = list(getattr(subscription, 'keys', []) or [])
-    keys.sort(key=lambda item: (0 if _is_active_key(item, subscription) else 1, getattr(getattr(item, 'server', None), 'name', '')))
+    keys.sort(key=lambda item: (0 if _is_active_key(item, subscription) else 1, _server_sort_name(item)))
     key_cards = ''.join(_render_key_card(key, subscription, access_token, user_id) for key in keys)
     servers_preview = escape(', '.join(names) if names else 'Серверы пока не подтянулись')
     status_badge = '<span class="badge badge-ok">🟢 Активна</span>' if _is_active_subscription(subscription) else '<span class="badge badge-bad">🔴 Истекла</span>'
@@ -247,9 +254,23 @@ def _render_access_page(user, notice: str = '') -> str:
     notice = (notice or '').strip()[:240]
     notice_block = f'<div class="notice">{escape(notice)}</div>' if notice else ''
     user_id = int(getattr(user, 'id', 0) or 0)
-    active_cards = ''.join(_render_subscription_card(subscription, token, user_id) for subscription in active_subscriptions)
+    rendered_cards: list[str] = []
+    for subscription in active_subscriptions:
+        try:
+            rendered_cards.append(_render_subscription_card(subscription, token, user_id))
+        except Exception:
+            logger.exception('Failed to render reserve subscription card for subscription %s', getattr(subscription, 'id', None))
+            rendered_cards.append(
+                '<section class="subscription-card">'
+                '<div class="card-top"><div><h3>Подписка временно недоступна</h3><p class="muted compact">Не удалось собрать карточку этой подписки.</p></div><span class="badge badge-bad">⚠️ Ошибка</span></div>'
+                '<p class="muted">Попробуйте обновить страницу чуть позже. Если проблема повторится, вернитесь в Telegram и перевыпустите ключ после обновления бота.</p>'
+                '</section>'
+            )
+    active_cards = ''.join(rendered_cards)
     user_name = escape(getattr(user, 'full_name', '') or getattr(user, 'username', '') or str(getattr(user, 'telegram_id', 'Пользователь')))
     reserve_tile = _render_copy_tile('Личная ссылка на кабинет', reserve_url, 'Нажмите, чтобы скопировать и сохраните отдельно', tone='accent')
+    if not reserve_tile:
+        reserve_tile = '<p class="muted compact">Резервная ссылка сейчас временно недоступна.</p>'
     return f'''<!doctype html>
 <html lang="ru">
 <head>
