@@ -18,8 +18,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.keyboards import (
     ADMIN_LABEL,
+    BACK_LABEL,
     BUY_LABEL,
     HELP_LABEL,
+    HOME_LABEL,
     PROFILE_LABEL,
     REFERRAL_LABEL,
     TRIAL_LABEL,
@@ -2694,7 +2696,7 @@ class BotController:
             lines.extend(['', 'У пользователя пока нет подписок. Можно выдать доступ вручную ниже.'])
         return '\n'.join(lines)
     def _render_admin_roles(self, admins) -> str:
-        lines = ['🛡️ Роли админов', '', f'Администраторов в системе: {len(admins)}', '']
+        lines = ['🛡️ Роли администраторов', '', f'Администраторов в системе: {len(admins)}', '']
         if not admins:
             lines.append('Пока нет дополнительных администраторов. Назначьте роль из карточки пользователя.')
             return '\n'.join(lines)
@@ -2703,6 +2705,7 @@ class BotController:
             lines.append(f"{self._admin_role_badge(role)} {self._admin_display_name(user)} • {self._admin_role_title(role)}")
         lines.extend(['', 'Откройте карточку, чтобы посмотреть права роли и при необходимости изменить её.'])
         return '\n'.join(lines)
+
     def _roles_markup(self, admins):
         builder = InlineKeyboardBuilder()
         for user in admins:
@@ -2725,6 +2728,7 @@ class BotController:
             *[f'• {line}' for line in self._role_scope_lines(role)],
         ]
         return '\n'.join(lines)
+
     def _role_card_markup(self, target_user, actor_role: str, back_callback: str = 'adm:roles'):
         builder = InlineKeyboardBuilder()
         if self._can_edit_role(actor_role, target_user):
@@ -2750,12 +2754,14 @@ class BotController:
                 target = f" -> {item.target_server.name}"
             lines.append(f"• {item.created_at:%d.%m %H:%M} • {actor}: {item.description}{target}")
         return '\n'.join(lines)
+
     def _audit_markup(self):
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text='🔄 Обновить журнал', callback_data='adm:audit'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
+
     def _render_user_diagnostics(self, user, failures) -> str:
         lines = ['🧯 Диагностика пользователя', '', f'Пользователь: {self._admin_display_name(user)}', f'Telegram ID: {user.telegram_id}']
         if not failures:
@@ -2766,12 +2772,14 @@ class BotController:
             server_name = getattr(getattr(item, 'server', None), 'name', None) or getattr(item, 'server_name', None) or 'сервер не указан'
             lines.append(f"• {item.created_at:%d.%m %H:%M} • {server_name} • {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} • {item.error}")
         return '\n'.join(lines)
+
     def _user_diagnostics_markup(self, user_id: int, filter_key: str, page: int):
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text='🔄 Обновить диагностику', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:user:{user_id}:{filter_key}:{page}'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
+
     def _render_server_failures(self, server, failures) -> str:
         lines = ['🧯 История сбоев сервера', '', f'Сервер: {server.name}', f'Панель: {server.base_url}']
         if not failures:
@@ -2781,12 +2789,14 @@ class BotController:
         for item in failures[:15]:
             lines.append(f"• {item.created_at:%d.%m %H:%M} • {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} • {item.error}")
         return '\n'.join(lines)
+
     def _server_failures_markup(self, server_id: int):
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text='🔄 Обновить историю', callback_data=f'adm:server:failures:{server_id}'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:server:view:{server_id}'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
+
     def _render_operations_text(self, operations) -> str:
         lines = ["📜 Операции пользователя", ""]
         if not operations:

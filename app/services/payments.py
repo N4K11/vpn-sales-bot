@@ -85,6 +85,28 @@ class PaymentService:
         if not payment:
             return PaymentWebhookResult(ok=False, provider_payment_id=provider_payment_id)
 
+        event = str(payload.get("event") or "").strip()
+        status = str(obj.get("status") or "").strip()
+        if event == "payment.succeeded" or status == "succeeded":
+            was_unpaid = payment.status != "paid"
+            await self.store.mark_payment_paid(payment.id)
+            return PaymentWebhookResult(
+                ok=True,
+                payment_id=payment.id,
+                marked_paid=was_unpaid,
+                provider_payment_id=provider_payment_id,
+                status="succeeded",
+            )
+
+        if status:
+            return PaymentWebhookResult(
+                ok=True,
+                payment_id=payment.id,
+                marked_paid=False,
+                provider_payment_id=provider_payment_id,
+                status=status,
+            )
+
         config = await self.store.get_payment_settings_snapshot()
         try:
             remote_payment = await self._fetch_yookassa_payment(provider_payment_id, config)
