@@ -295,11 +295,13 @@ class BotController:
             await self._safe_answer_callback(callback, )
             return
         if target == "admin":
-            if callback.from_user.id not in settings.admin_ids:
-                await self._safe_answer_callback(callback, "Нет доступа.", show_alert=True)
+            actor = await self._admin_actor(callback.from_user)
+            actor_role = self._admin_role_value(actor)
+            if actor_role == 'user':
+                await self._safe_answer_callback(callback, "??? ???????.", show_alert=True)
                 return
             await self._safe_edit_message_text(callback.message, await self._admin_panel_text(actor_role), reply_markup=admin_panel_keyboard(actor_role))
-            await self._safe_answer_callback(callback, )
+            await self._safe_answer_callback(callback)
             return
         await self._safe_answer_callback(callback, )
 
