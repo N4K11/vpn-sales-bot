@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aiogram.types import User as TelegramUser
-from sqlalchemy import Select, desc, func, select
+from sqlalchemy import Select, desc, func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
@@ -810,6 +810,25 @@ class Store:
     async def get_payment_by_provider_payment_id(self, provider_payment_id: str) -> Payment | None:
         async with self.session_factory() as session:
             return await session.scalar(select(Payment).where(Payment.provider_payment_id == provider_payment_id))
+
+    async def try_mark_payment_activation_notice_sent(self, payment_id: int) -> bool:
+        async with self.session_factory() as session:
+            result = await session.execute(
+                update(Payment)
+                .where(Payment.id == payment_id, Payment.activation_notice_sent_at.is_(None))
+                .values(activation_notice_sent_at=datetime.utcnow())
+            )
+            await session.commit()
+            return bool(result.rowcount)
+
+    async def clear_payment_activation_notice_sent(self, payment_id: int) -> None:
+        async with self.session_factory() as session:
+            await session.execute(
+                update(Payment)
+                .where(Payment.id == payment_id)
+                .values(activation_notice_sent_at=None)
+            )
+            await session.commit()
 
     async def update_payment_provider(self, payment_id: int, provider_payment_id: str, provider_url: str) -> None:
         async with self.session_factory() as session:

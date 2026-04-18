@@ -180,13 +180,22 @@ async def activate_paid_payment(bot: Bot, store: Store, provisioning: Provisioni
     subscription, vpn_keys, extended = await provisioning.activate_payment(payment_id)
     if not user or not subscription:
         return False
+    should_send_notice = await store.try_mark_payment_activation_notice_sent(payment_id)
+    if not should_send_notice:
+        logger.info('Skipping duplicate payment activation notice for payment %s', payment_id)
+        return True
     reserve_url = await reserve_access_url_for(store, getattr(subscription, 'user', None))
-    await bot.send_message(
-        user.telegram_id,
-        render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
-        reply_markup=access_result_keyboard(build_subscription_action_rows(subscription), reserve_url=reserve_url),
-    )
+    try:
+        await bot.send_message(
+            user.telegram_id,
+            render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
+            reply_markup=access_result_keyboard(build_subscription_action_rows(subscription), reserve_url=reserve_url),
+        )
+    except Exception:
+        await store.clear_payment_activation_notice_sent(payment_id)
+        raise
     return True
+
 
 
 async def payment_polling_loop(bot: Bot, store: Store, payments: PaymentService, provisioning: ProvisioningService) -> None:

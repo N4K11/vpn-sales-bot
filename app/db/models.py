@@ -132,6 +132,7 @@ class Payment(TimestampMixin, Base):
     provider_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
     payload: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    activation_notice_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="payments")
     tariff: Mapped["Tariff"] = relationship(back_populates="payments")
