@@ -298,7 +298,7 @@ class BotController:
             actor = await self._admin_actor(callback.from_user)
             actor_role = self._admin_role_value(actor)
             if actor_role == 'user':
-                await self._safe_answer_callback(callback, "??? ???????.", show_alert=True)
+                await self._safe_answer_callback(callback, "Нет доступа.", show_alert=True)
                 return
             await self._safe_edit_message_text(callback.message, await self._admin_panel_text(actor_role), reply_markup=admin_panel_keyboard(actor_role))
             await self._safe_answer_callback(callback)
@@ -351,7 +351,7 @@ class BotController:
                 payload = build_subscription_url(subscription)
                 if not payload:
                     raise ValueError('Общая ссылка подписки пока не сформировалась.')
-                await self._send_qr_image(chat_id, payload, f'subscription_{subscription.id}.png', f'?? QR ????? ??????\n{self._subscription_title(subscription)}')
+                await self._send_qr_image(chat_id, payload, f'subscription_{subscription.id}.png', f'📷 QR общей подписки\n{self._subscription_title(subscription)}')
                 return
             if kind == 'key':
                 key_id = int(parts[2])
@@ -363,7 +363,7 @@ class BotController:
                 payload = (key.access_url or '').strip()
                 if not payload or payload.startswith('legacy-import://'):
                     raise ValueError('Для этого ключа QR пока недоступен.')
-                await self._send_qr_image(chat_id, payload, f'key_{key.id}.png', f'?? QR ?????????? ?????\n{self._key_server_name(key)}')
+                await self._send_qr_image(chat_id, payload, f'key_{key.id}.png', f'📷 QR серверного ключа\n{self._key_server_name(key)}')
                 return
             if kind == 'reserve':
                 target_user_id = int(parts[2])
@@ -375,13 +375,13 @@ class BotController:
                 payload = await self._reserve_access_url(target_user)
                 if not payload:
                     raise ValueError('Резервный доступ сейчас скрыт или не настроен.')
-                await self._send_qr_image(chat_id, payload, f'reserve_{target_user.id}.png', '?? QR ?????????? ????????\n????????? ??? ???????, ????? ?? ???????? ?????? ??? Telegram.')
+                await self._send_qr_image(chat_id, payload, f'reserve_{target_user.id}.png', '📷 QR резервного кабинета\nСохраните его заранее, чтобы не потерять доступ вне Telegram.')
                 return
             await self.bot.send_message(chat_id, '⚠️ Неизвестный тип QR-запроса.')
         except ValueError as exc:
             await self.bot.send_message(chat_id, f'⚠️ {exc}')
         except QRCodeUnavailableError as exc:
-            await self.bot.send_message(chat_id, f'?? {exc}\n\n????? ???????? QR-????, ???????? ???????????: python -m pip install .')
+            await self.bot.send_message(chat_id, f'⚠️ {exc}\n\nЧтобы включить QR-коды, обновите зависимости: python -m pip install .')
 
     async def handle_subscription_callbacks(self, callback: CallbackQuery) -> None:
         user = await self.store.get_or_create_user(callback.from_user)
@@ -496,7 +496,7 @@ class BotController:
         await self._safe_answer_callback(callback, 'Готовлю пробный доступ...')
         subscription, vpn_keys, error = await self.provisioning.grant_trial(callback.from_user.id)
         if error:
-            await self._safe_edit_message_text(callback.message, f'?? {error}\n\n?????????? ????? ??? ????????? ?????.', reply_markup=back_keyboard('nav:trial', labels=await self._user_button_labels()))
+            await self._safe_edit_message_text(callback.message, f'⚠️ {error}\n\nАктивировать пробный доступ не удалось.', reply_markup=back_keyboard('nav:trial', labels=await self._user_button_labels()))
             return
         reserve_url = await self._reserve_access_url(getattr(subscription, 'user', None))
         await self._safe_edit_message_text(callback.message, await self._render_activation_result(subscription, vpn_keys, is_trial=True, reserve_url=reserve_url), reply_markup=access_result_keyboard(self._subscription_action_rows([subscription], 'profile'), subscription_url=build_subscription_url(subscription), reserve_url=reserve_url, reserve_qr_callback=(f"qr:reserve:{subscription.user_id}" if reserve_url and getattr(subscription, 'user_id', None) else None), labels=await self._user_button_labels()))
@@ -674,7 +674,7 @@ class BotController:
         parts = callback.data.split(":")
         section = parts[1]
         if not self._can_access_admin_section(actor_role, section):
-            await self._safe_answer_callback(callback, '??? ??????? ? ????? ???????.', show_alert=True)
+            await self._safe_answer_callback(callback, 'Нет доступа к этому разделу.', show_alert=True)
             return
         if section == "panel":
             await state.clear()
@@ -689,7 +689,7 @@ class BotController:
         if section == 'role' and len(parts) > 3 and parts[2] == 'view':
             target_user = await self.store.get_user_admin_summary(int(parts[3]))
             if not target_user:
-                await self._safe_answer_callback(callback, '???????????? ?? ??????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Пользователь не найден.', show_alert=True)
                 return
             await self._safe_edit_message_text(callback.message, self._render_role_card(target_user), reply_markup=self._role_card_markup(target_user, actor_role))
             await self._safe_answer_callback(callback)
@@ -698,18 +698,18 @@ class BotController:
             target_user = await self.store.get_user_admin_summary(int(parts[3]))
             role = parts[4]
             if not target_user:
-                await self._safe_answer_callback(callback, '???????????? ?? ??????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Пользователь не найден.', show_alert=True)
                 return
             if not self._can_edit_role(actor_role, target_user):
-                await self._safe_answer_callback(callback, '??? ???? ?????? ????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Нет прав менять роль.', show_alert=True)
                 return
             updated = await self.store.set_user_admin_role(target_user.id, role)
             if not updated:
-                await self._safe_answer_callback(callback, '?? ??????? ???????? ????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Не удалось изменить роль.', show_alert=True)
                 return
-            await self._log_admin_action(actor, action='role_set', description=f'???????? ???? ?? {self._admin_role_title(role)}', target_user_id=updated.id, details={'role': role})
+            await self._log_admin_action(actor, action='role_set', description=f'Изменена роль на {self._admin_role_title(role)}', target_user_id=updated.id, details={'role': role})
             await self._safe_edit_message_text(callback.message, self._render_role_card(updated), reply_markup=self._role_card_markup(updated, actor_role))
-            await self._safe_answer_callback(callback, '???? ?????????')
+            await self._safe_answer_callback(callback, 'Роль обновлена')
             return
         if section == 'audit':
             logs = await self.store.list_admin_action_logs(limit=30)
@@ -722,7 +722,7 @@ class BotController:
             page = int(parts[5])
             admin_user = await self.store.get_user_admin_summary(user_id)
             if not admin_user:
-                await self._safe_answer_callback(callback, '???????????? ?? ??????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Пользователь не найден.', show_alert=True)
                 return
             failures = await self.store.list_provisioning_failures(limit=20, user_telegram_id=admin_user.telegram_id)
             await self._safe_edit_message_text(callback.message, self._render_user_diagnostics(admin_user, failures), reply_markup=self._user_diagnostics_markup(user_id, filter_key, page))
@@ -734,7 +734,7 @@ class BotController:
             page = int(parts[5])
             target_user = await self.store.get_user_admin_summary(user_id)
             if not target_user:
-                await self._safe_answer_callback(callback, '???????????? ?? ??????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Пользователь не найден.', show_alert=True)
                 return
             await self._safe_edit_message_text(callback.message, self._render_role_card(target_user), reply_markup=self._role_card_markup(target_user, actor_role, back_callback=f'adm:user:{user_id}:{filter_key}:{page}'))
             await self._safe_answer_callback(callback)
@@ -743,7 +743,7 @@ class BotController:
             server_id = int(parts[3])
             server = await self._load_server_for_admin(server_id)
             if not server:
-                await self._safe_answer_callback(callback, '?????? ?? ??????.', show_alert=True)
+                await self._safe_answer_callback(callback, 'Сервер не найден.', show_alert=True)
                 return
             failures = await self.store.list_provisioning_failures(limit=25, server_id=server_id)
             await self._safe_edit_message_text(callback.message, self._render_server_failures(server, failures), reply_markup=self._server_failures_markup(server_id))
@@ -894,7 +894,7 @@ class BotController:
             page = int(parts[4])
             admin_user = await self.store.get_user_admin_summary(user_id)
             if not admin_user:
-                await self._safe_answer_callback(callback, "???????????? ?? ??????.", show_alert=True)
+                await self._safe_answer_callback(callback, "Пользователь не найден.", show_alert=True)
                 return
             await self._safe_edit_message_text(callback.message, self._render_admin_user(admin_user), reply_markup=self._admin_user_markup(admin_user, actor_role, filter_key, page))
             await self._safe_answer_callback(callback)
@@ -907,23 +907,23 @@ class BotController:
             page = int(parts[5])
             if action == "balance":
                 if not permissions['can_grant_balance']:
-                    await self._safe_answer_callback(callback, "??? ??????? ? ?????????? ???????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Нет доступа к изменению баланса.", show_alert=True)
                     return
                 await state.set_state(BalanceGrantState.waiting_amount)
                 await state.update_data(user_id=user_id, filter_key=filter_key, page=page, source_chat_id=callback.message.chat.id, source_message_id=callback.message.message_id)
-                await self._safe_edit_message_text(callback.message, "?? ?????? ???????\n\n????????? ?????, ??????? ????? ????????? ????????????.\n??????: 150 ??? 150.50", reply_markup=back_keyboard(f"adm:user:{user_id}:{filter_key}:{page}"))
+                await self._safe_edit_message_text(callback.message, "💳 Выдача баланса\n\nОтправьте сумму, которую нужно начислить пользователю.\nПример: 150 или 150.50", reply_markup=back_keyboard(f"adm:user:{user_id}:{filter_key}:{page}"))
                 await self._safe_answer_callback(callback)
                 return
             if action == "key":
                 if not permissions['can_grant_access']:
-                    await self._safe_answer_callback(callback, "??? ??????? ? ?????? ??????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Нет доступа к выдаче доступа.", show_alert=True)
                     return
                 if not await self.store.list_balanced_servers(trial_only=False):
-                    await self._safe_answer_callback(callback, "??? ?????????? ???????? ??? ?????? ???????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Нет доступных серверов для выдачи доступа.", show_alert=True)
                     return
                 await state.set_state(ManualSubscriptionState.waiting_days)
                 await state.update_data(grant_user_id=user_id, filter_key=filter_key, page=page, source_chat_id=callback.message.chat.id, source_message_id=callback.message.message_id)
-                await self._safe_edit_message_text(callback.message, "?? ?????? ???????\n\n????????? ???? ??????? ? ????.\n????? ????????????? ??????? ???????? ?? ????????? ???? ? ????????? ????????? ???????.", reply_markup=back_keyboard(f"adm:user:{user_id}:{filter_key}:{page}"))
+                await self._safe_edit_message_text(callback.message, "🌐 Ручная выдача доступа\n\nОтправьте срок доступа в днях.\nПосле подтверждения система автоматически выберет сервер и создаст активный доступ.", reply_markup=back_keyboard(f"adm:user:{user_id}:{filter_key}:{page}"))
                 await self._safe_answer_callback(callback)
                 return
             if action == "ops":
@@ -938,20 +938,20 @@ class BotController:
                 return
             if action == "block":
                 if not permissions['can_manage_block']:
-                    await self._safe_answer_callback(callback, "??? ???? ?? ?????????? ????????????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Нет прав на управление блокировкой.", show_alert=True)
                     return
                 admin_user = await self.store.get_user_admin_summary(user_id)
                 if not admin_user:
-                    await self._safe_answer_callback(callback, "???????????? ?? ??????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Пользователь не найден.", show_alert=True)
                     return
                 if self._admin_role_value(admin_user) != 'user':
-                    await self._safe_answer_callback(callback, "????????????????? ???? ??????????? ??????.", show_alert=True)
+                    await self._safe_answer_callback(callback, "Блокировать можно только обычных пользователей.", show_alert=True)
                     return
                 await self.store.toggle_user_blocked(user_id)
                 admin_user = await self.store.get_user_admin_summary(user_id)
-                await self._log_admin_action(actor, action='user_block_toggle', description='??????? ?????? ?????????? ????????????', target_user_id=user_id, details={'is_blocked': admin_user.is_blocked})
+                await self._log_admin_action(actor, action='user_block_toggle', description='Изменён статус доступа пользователя', target_user_id=user_id, details={'is_blocked': admin_user.is_blocked})
                 await self._safe_edit_message_text(callback.message, self._render_admin_user(admin_user), reply_markup=self._admin_user_markup(admin_user, actor_role, filter_key, page))
-                await self._safe_answer_callback(callback, "?????? ???????????? ????????")
+                await self._safe_answer_callback(callback, "Статус пользователя изменён")
                 return
 
         if section == "texts":
@@ -1487,7 +1487,7 @@ class BotController:
             return
         reserve_url = await self._reserve_access_url(getattr(subscription, 'user', None))
         actor = await self._admin_actor(message.from_user)
-        await self._log_admin_action(actor, action='manual_access_issue', description='????? ?????? ?????? ????????????', target_user_id=user_id, details={'days': days, 'subscription_id': getattr(subscription, 'id', None)})
+        await self._log_admin_action(actor, action='manual_access_issue', description='Ручная выдача доступа пользователю', target_user_id=user_id, details={'days': days, 'subscription_id': getattr(subscription, 'id', None)})
         await self._safe_edit_message_by_id(chat_id, message_id, await self._render_activation_result(subscription, vpn_keys, manual=True, reserve_url=reserve_url), reply_markup=admin_result_keyboard(self._subscription_action_rows([subscription], f"adminuser:{user_id}:{filter_key}:{page}"), f"adm:user:{user_id}:{filter_key}:{page}"))
         await state.clear()
 
@@ -1618,22 +1618,22 @@ class BotController:
 
     def _admin_role_title(self, role: str) -> str:
         return {
-            'owner': '????????',
-            'admin': '?????????????',
-            'support': '?????????',
-            'finance': '???????',
-            'ops': '????????',
-            'user': '????????????',
+            'owner': 'Владелец',
+            'admin': 'Администратор',
+            'support': 'Поддержка',
+            'finance': 'Финансы',
+            'ops': 'Операции',
+            'user': 'Пользователь',
         }.get(role, role)
     def _admin_role_badge(self, role: str) -> str:
         return {
-            'owner': '??',
-            'admin': '???',
-            'support': '??',
-            'finance': '??',
-            'ops': '???',
-            'user': '??',
-        }.get(role, '??')
+            'owner': '👑',
+            'admin': '🛡️',
+            'support': '💬',
+            'finance': '💳',
+            'ops': '🖥️',
+            'user': '👤',
+        }.get(role, '👤')
     def _admin_sections(self, role: str) -> set[str]:
         mapping = {
             'owner': {'panel', 'finance', 'analytics', 'guide', 'reserve', 'tariffs', 'tariff', 'payments', 'paymentcfg', 'toggle', 'users', 'user', 'texts', 'text', 'servers', 'server', 'referral', 'broadcast', 'trial', 'backup', 'updates', 'roles', 'role', 'audit'},
@@ -1666,13 +1666,13 @@ class BotController:
 
     def _role_scope_lines(self, role: str) -> list[str]:
         scopes = {
-            'owner': ['?????? ?????? ?? ???? ???????? ? ??????????.', '????? ?????? ????, ???????? ?????? ???????? ? ????????? ???? ????????.'],
-            'admin': ['????????? ??????????????, ????????, ????????, ????????? ? ??????????.', '?? ?????? ???? ? ?? ????? ?????? ????????.'],
-            'support': ['???????? ? ??????????????, ????????, ???????????? ? ????????????.', '?? ????????? ????????, ?????? ? ?????????.'],
-            'finance': ['????? ???????, ?????????, ?????? ? ???????????????? ????????.', '?? ?????? ????, ??????? ? ??????.'],
-            'ops': ['???????? ? ?????????, ???????????? ? ??????????? ????????????.', '?? ????????? ???????? ? ??????.'],
+            'owner': ['Полный доступ ко всем разделам и настройкам.', 'Может менять роли, управлять админами и запускать любые служебные действия.'],
+            'admin': ['Управляет пользователями, серверами, тарифами, текстами и рассылками.', 'Не меняет роли и не имеет доступа к owner-настройкам.'],
+            'support': ['Работает с пользователями, заявками, диагностикой и уведомлениями.', 'Не изменяет платежи, тарифы и серверы.'],
+            'finance': ['Видит финансы, аналитику, оплаты и журнал платёжных действий.', 'Не меняет роли, серверы и выдачу.'],
+            'ops': ['Работает с серверами, мониторингом и агентами Ubuntu.', 'Не изменяет платежи и тарифы.'],
         }
-        return scopes.get(role, ['???? ?? ???? ??????? ? ????????? ????????.'])
+        return scopes.get(role, ['Пока для этой роли не описаны разрешения.'])
     async def _log_admin_action(self, actor, action: str, description: str, **kwargs) -> None:
         await self.store.log_admin_action(
             actor_user_id=getattr(actor, 'id', None),
@@ -1701,13 +1701,13 @@ class BotController:
     async def _assert_admin_message(self, message: Message) -> bool:
         actor = await self._admin_actor(message.from_user)
         if self._admin_role_value(actor) == 'user':
-            await message.answer('? ??? ??? ??????? ? ?????-??????.')
+            await message.answer('У вас нет доступа к админ-панели.')
             return False
         return True
     async def _assert_admin_callback(self, callback: CallbackQuery) -> bool:
         actor = await self._admin_actor(callback.from_user)
         if self._admin_role_value(actor) == 'user':
-            await self._safe_answer_callback(callback, '??? ???????.', show_alert=True)
+            await self._safe_answer_callback(callback, 'Нет доступа.', show_alert=True)
             return False
         return True
     async def _deny_blocked_message(self, message: Message, user) -> bool:
@@ -2122,32 +2122,32 @@ class BotController:
         update_status = await self.updater.get_status()
         role_badge = self._admin_role_badge(actor_role)
         role_title = self._admin_role_title(actor_role)
-        commit_line = (update_status.latest_commit_message or '???????? ??????? ??????????.').splitlines()[0].strip()
+        commit_line = (update_status.latest_commit_message or 'описание последнего коммита недоступно.').splitlines()[0].strip()
         lines = [
-            '?? ????? ??????????',
+            '⚙️ Центр управления',
             '',
-            f'???? ???????: {role_badge} {role_title}',
+            f'Роль доступа: {role_badge} {role_title}',
             '',
-            '????? ???????:',
-            f'?? ?????????????: {metrics.get("users", 0)}',
-            f'?? ???????? ??????: {metrics.get("active_users", 0)}',
-            f'? ????????? ??????: {metrics.get("pending_payments", 0)}',
-            f'??? ???????? ? ????: {metrics.get("servers", 0)}',
-            f'??? ???????????????: {metrics.get("admins", 0)}',
-            f'?? ????? ?????? ?? 3 ????: {metrics.get("recent_provisioning_failures", 0)}',
-            f'?? ??????: {update_status.current_version}',
+            'Пульс системы:',
+            f'👥 Пользователей: {metrics.get("users", 0)}',
+            f'🟢 Активный доступ: {metrics.get("active_users", 0)}',
+            f'⏳ Ожидающие оплаты: {metrics.get("pending_payments", 0)}',
+            f'🖥️ Серверов в базе: {metrics.get("servers", 0)}',
+            f'🛡️ Администраторов: {metrics.get("admins", 0)}',
+            f'🧯 Сбоев выдачи за 3 часа: {metrics.get("recent_provisioning_failures", 0)}',
+            f'🚀 Версия: {update_status.current_version}',
         ]
         if update_status.update_available:
             lines.extend([
                 '',
-                f'?? ???????? ??????????: {update_status.latest_version}',
-                f'????????? ??????: {(update_status.latest_revision or "")[:7]} ? {commit_line}',
+                f'📦 Доступно обновление: {update_status.latest_version}',
+                f'Последний коммит: {(update_status.latest_revision or "")[:7]} • {commit_line}',
             ])
         elif update_status.check_error:
-            lines.extend(['', f'?? ???????? ??????????: {update_status.check_error}'])
+            lines.extend(['', f'⚠️ Проверка обновлений: {update_status.check_error}'])
         else:
-            lines.extend(['', '? ????? ?????????? ???? ???.'])
-        lines.extend(['', '???? ??????? ????????? ??? ????? ???? ??????? ??????????.'])
+            lines.extend(['', '✅ Новых обновлений пока нет.'])
+        lines.extend(['', 'Ниже собраны доступные для вашей роли разделы управления.'])
         return '\n'.join(lines)
     def _render_finance_admin(self, analytics: dict) -> str:
         server_lines = []
@@ -2657,51 +2657,51 @@ class BotController:
         total_keys = sum(len(getattr(sub, 'keys', []) or []) for sub in subscriptions)
         active_keys = sum(1 for sub in subscriptions for key in getattr(sub, 'keys', []) or [] if self._is_key_alive(key, sub))
         archived_keys = max(total_keys - active_keys, 0)
-        username = f"@{user.username}" if getattr(user, 'username', None) else '?? ??????'
-        full_name = (getattr(user, 'full_name', '') or '').strip() or '??? ?????'
+        username = f"@{user.username}" if getattr(user, 'username', None) else 'не указан'
+        full_name = (getattr(user, 'full_name', '') or '').strip() or 'без имени'
         paid_payments = sum(1 for payment in getattr(user, 'payments', []) or [] if getattr(payment, 'status', '') == 'paid')
         role = self._admin_role_value(user)
         lines = [
-            '?? ???????? ????????????',
+            '👤 Карточка пользователя',
             '',
-            f'?? ?????????? ID: {user.id}',
-            f'?? Telegram ID: {user.telegram_id}',
-            f'?? ???: {full_name}',
-            f'?? Username: {username}',
-            f"?? ?????? ???????: {'????????????' if getattr(user, 'is_blocked', False) else '???????'}",
-            f'??? ????: {self._admin_role_badge(role)} {self._admin_role_title(role)}',
+            f'🆔 Внутренний ID: {user.id}',
+            f'📨 Telegram ID: {user.telegram_id}',
+            f'🙍 Имя: {full_name}',
+            f'🔗 Username: {username}',
+            f"🚫 Статус доступа: {'заблокирован' if getattr(user, 'is_blocked', False) else 'активен'}",
+            f'🛡️ Роль: {self._admin_role_badge(role)} {self._admin_role_title(role)}',
             '',
-            f'?? ??????: {format_money(user.balance)}',
-            f'?? ????????: {len(subscriptions)}',
-            f'?? ???????? ????????: {len(active_subscriptions)}',
-            f'?? ???????? ??????: {active_keys}',
-            f'??? ???????? ??????: {archived_keys}',
-            f'?? ???????? ?????: {paid_payments}',
-            f'?? ???????? ???????: {len(getattr(user, "balance_operations", []) or [])}',
-            f'?? ?????????: {len(getattr(user, "referrals", []) or [])}',
+            f'💰 Баланс: {format_money(user.balance)}',
+            f'📦 Подписок: {len(subscriptions)}',
+            f'🟢 Активных подписок: {len(active_subscriptions)}',
+            f'🔑 Активных ключей: {active_keys}',
+            f'🗂️ Архивных ключей: {archived_keys}',
+            f'💳 Успешных оплат: {paid_payments}',
+            f'📜 Операций баланса: {len(getattr(user, "balance_operations", []) or [])}',
+            f'👥 Рефералов: {len(getattr(user, "referrals", []) or [])}',
         ]
         if active_subscriptions:
-            lines.extend(['', '???????? ????????:'])
+            lines.extend(['', 'Активные подписки:'])
             for idx, subscription in enumerate(active_subscriptions[:3], start=1):
                 lines.extend(self._render_subscription_block(subscription, idx, admin_view=True))
         if archived_subscriptions:
-            lines.extend(['', '?????:'])
+            lines.extend(['', 'Архив:'])
             for idx, subscription in enumerate(archived_subscriptions[:2], start=1):
                 lines.extend(self._render_subscription_block(subscription, idx, admin_view=True))
             if len(archived_subscriptions) > 2:
-                lines.append(f'? ? ??? {len(archived_subscriptions) - 2} ???????? ????????')
+                lines.append(f'• и ещё {len(archived_subscriptions) - 2} архивных подписок')
         if not subscriptions:
-            lines.extend(['', '? ???????????? ???? ??? ????????. ????? ?????? ?????? ??????? ????.'])
+            lines.extend(['', 'У пользователя пока нет подписок. Можно выдать доступ вручную ниже.'])
         return '\n'.join(lines)
     def _render_admin_roles(self, admins) -> str:
-        lines = ['??? ???? ???????', '', f'??????????????? ? ???????: {len(admins)}', '']
+        lines = ['🛡️ Роли админов', '', f'Администраторов в системе: {len(admins)}', '']
         if not admins:
-            lines.append('???? ??? ?????????????? ???????????????. ????????? ???? ?? ???????? ????????????.')
+            lines.append('Пока нет дополнительных администраторов. Назначьте роль из карточки пользователя.')
             return '\n'.join(lines)
         for user in admins:
             role = self._admin_role_value(user)
-            lines.append(f"{self._admin_role_badge(role)} {self._admin_display_name(user)} ? {self._admin_role_title(role)}")
-        lines.extend(['', '???????? ????????, ????? ?????????? ????? ???? ? ??? ????????????? ???????? ??.'])
+            lines.append(f"{self._admin_role_badge(role)} {self._admin_display_name(user)} • {self._admin_role_title(role)}")
+        lines.extend(['', 'Откройте карточку, чтобы посмотреть права роли и при необходимости изменить её.'])
         return '\n'.join(lines)
     def _roles_markup(self, admins):
         builder = InlineKeyboardBuilder()
@@ -2715,14 +2715,14 @@ class BotController:
     def _render_role_card(self, target_user) -> str:
         role = self._admin_role_value(target_user)
         lines = [
-            '??? ???? ??????????????',
+            '🛡️ Роль администратора',
             '',
-            f'????????????: {self._admin_display_name(target_user)}',
+            f'Пользователь: {self._admin_display_name(target_user)}',
             f'Telegram ID: {target_user.telegram_id}',
-            f'??????? ????: {self._admin_role_badge(role)} {self._admin_role_title(role)}',
+            f'Текущая роль: {self._admin_role_badge(role)} {self._admin_role_title(role)}',
             '',
-            '??? ???? ??? ????:',
-            *[f'? {line}' for line in self._role_scope_lines(role)],
+            'Что даёт эта роль:',
+            *[f'• {line}' for line in self._role_scope_lines(role)],
         ]
         return '\n'.join(lines)
     def _role_card_markup(self, target_user, actor_role: str, back_callback: str = 'adm:roles'):
@@ -2737,53 +2737,53 @@ class BotController:
         return builder.as_markup()
 
     def _render_admin_audit(self, logs) -> str:
-        lines = ['?? ?????? ????????', '']
+        lines = ['🧾 Журнал действий', '']
         if not logs:
-            lines.append('??????? ???? ???.')
+            lines.append('Записей пока нет.')
             return '\n'.join(lines)
         for item in logs[:20]:
-            actor = self._admin_display_name(getattr(item, 'actor', None)) if getattr(item, 'actor', None) else '????????? ????????'
+            actor = self._admin_display_name(getattr(item, 'actor', None)) if getattr(item, 'actor', None) else 'системное действие'
             target = ''
             if getattr(item, 'target_user', None):
                 target = f" -> {self._admin_display_name(item.target_user)}"
             elif getattr(item, 'target_server', None):
                 target = f" -> {item.target_server.name}"
-            lines.append(f"? {item.created_at:%d.%m %H:%M} ? {actor}: {item.description}{target}")
+            lines.append(f"• {item.created_at:%d.%m %H:%M} • {actor}: {item.description}{target}")
         return '\n'.join(lines)
     def _audit_markup(self):
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text='?? ???????? ??????', callback_data='adm:audit'))
+        builder.row(InlineKeyboardButton(text='🔄 Обновить журнал', callback_data='adm:audit'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
     def _render_user_diagnostics(self, user, failures) -> str:
-        lines = ['?? ??????????? ????????????', '', f'????????????: {self._admin_display_name(user)}', f'Telegram ID: {user.telegram_id}']
+        lines = ['🧯 Диагностика пользователя', '', f'Пользователь: {self._admin_display_name(user)}', f'Telegram ID: {user.telegram_id}']
         if not failures:
-            lines.extend(['', '???????? ?????? ?????? ?? ????? ???????????? ?? ???????.'])
+            lines.extend(['', 'Недавних ошибок выдачи по этому пользователю не найдено.'])
             return '\n'.join(lines)
-        lines.extend(['', '????????? ?????? ??????:'])
+        lines.extend(['', 'Последние ошибки выдачи:'])
         for item in failures[:10]:
-            server_name = getattr(getattr(item, 'server', None), 'name', None) or getattr(item, 'server_name', None) or '?????? ?? ??????'
-            lines.append(f"? {item.created_at:%d.%m %H:%M} ? {server_name} ? {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} ? {item.error}")
+            server_name = getattr(getattr(item, 'server', None), 'name', None) or getattr(item, 'server_name', None) or 'сервер не указан'
+            lines.append(f"• {item.created_at:%d.%m %H:%M} • {server_name} • {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} • {item.error}")
         return '\n'.join(lines)
     def _user_diagnostics_markup(self, user_id: int, filter_key: str, page: int):
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text='?? ???????? ???????????', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
+        builder.row(InlineKeyboardButton(text='🔄 Обновить диагностику', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:user:{user_id}:{filter_key}:{page}'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
     def _render_server_failures(self, server, failures) -> str:
-        lines = ['?? ??????? ????? ???????', '', f'??????: {server.name}', f'??????: {server.base_url}']
+        lines = ['🧯 История сбоев сервера', '', f'Сервер: {server.name}', f'Панель: {server.base_url}']
         if not failures:
-            lines.extend(['', '???????? ?????? ?????? ?? ????? ??????? ?? ???????.'])
+            lines.extend(['', 'Недавних ошибок выдачи по этому серверу не найдено.'])
             return '\n'.join(lines)
-        lines.extend(['', '????????? ????:'])
+        lines.extend(['', 'Последние сбои:'])
         for item in failures[:15]:
-            lines.append(f"? {item.created_at:%d.%m %H:%M} ? {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} ? {item.error}")
+            lines.append(f"• {item.created_at:%d.%m %H:%M} • {_provisioning_stage_title(getattr(item, 'stage', 'unknown'))} • {item.error}")
         return '\n'.join(lines)
     def _server_failures_markup(self, server_id: int):
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text='?? ???????? ???????', callback_data=f'adm:server:failures:{server_id}'))
+        builder.row(InlineKeyboardButton(text='🔄 Обновить историю', callback_data=f'adm:server:failures:{server_id}'))
         builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:server:view:{server_id}'))
         builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
         return builder.as_markup()
@@ -3506,30 +3506,30 @@ class BotController:
     def _render_updates_admin(self, status, result_text: str | None = None, error_text: str | None = None) -> str:
         short_current = status.current_revision[:7] if status.current_revision else '?'
         short_latest = status.latest_revision[:7] if status.latest_revision else '?'
-        commit_line = (status.latest_commit_message or '???????? ??????? ??????????.').splitlines()[0].strip()
+        commit_line = (status.latest_commit_message or 'описание коммита недоступно.').splitlines()[0].strip()
         lines = [
-            '?? ??????????',
+            '🚀 Обновления',
             '',
-            f'??????? ??????: {status.current_version}',
-            f'??????? ???????: {short_current}',
-            f'?????: {status.image_name or "?? ??????"}',
-            f'GitHub: {status.repository or "?? ????????"}',
-            f'??????? ??????????: {"?????????" if status.trigger_configured else "?? ????????"}',
+            f'Текущая версия: {status.current_version}',
+            f'Текущая ревизия: {short_current}',
+            f'Образ: {status.image_name or "не задан"}',
+            f'GitHub: {status.repository or "не задан"}',
+            f'Триггер обновления: {"настроен" if status.trigger_configured else "не настроен"}',
             '',
-            f'???????? ??????????: {1 if status.update_available else 0}',
+            f'Доступно обновлений: {1 if status.update_available else 0}',
         ]
         if status.update_available:
-            lines.extend(['', '????????? ?????????:', f'`{short_latest}` ?????? {status.latest_version}: {commit_line}'])
+            lines.extend(['', 'Последние изменения:', f'`{short_latest}` версия {status.latest_version}: {commit_line}'])
         elif status.check_error:
-            lines.extend(['', f'?? ?????? ???????? GitHub: {status.check_error}'])
+            lines.extend(['', f'⚠️ Ошибка проверки GitHub: {status.check_error}'])
         else:
-            lines.extend(['', '? ????? ?????? ?? ???????.'])
+            lines.extend(['', '✅ Новых версий не найдено.'])
         if result_text:
-            lines.extend(['', f'? {result_text}'])
+            lines.extend(['', f'✅ {result_text}'])
         if error_text:
-            lines.extend(['', f'?? {error_text}'])
+            lines.extend(['', f'⚠️ {error_text}'])
         if not status.trigger_configured:
-            lines.extend(['', '??? ?????? ?????????? ??????? UPDATE_TRIGGER_URL ? UPDATE_TRIGGER_TOKEN ? ?????????.'])
+            lines.extend(['', 'Для автообновления нужны UPDATE_TRIGGER_URL и UPDATE_TRIGGER_TOKEN в окружении.'])
         return '\n'.join(lines)
     async def _render_key_view(self, key, notice: str | None = None) -> str:
         page = await self.store.get_content("key_detail")
