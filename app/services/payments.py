@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
@@ -12,6 +13,8 @@ from app.db.models import Payment, Tariff, User
 from app.services.store import Store
 
 logger = logging.getLogger(__name__)
+YOOKASSA_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=45, connect=15, sock_read=30)
+YOOKASSA_REQUEST_RETRIES = 3
 
 
 class PaymentGatewayError(RuntimeError):
@@ -43,16 +46,24 @@ class PaymentService:
             raise PaymentGatewayError("Платёж не найден.")
 
         config = await self.store.get_payment_settings_snapshot()
-        if payment.method == "yookassa":
-            invoice = await self._create_yookassa_invoice(payment, user, tariff, config)
-        elif payment.method == "crypto":
-            invoice = await self._create_crypto_invoice(payment, user, tariff, config)
-        else:
-            raise PaymentGatewayError("Для этого метода не требуется внешняя ссылка.")
+        try:
+            if payment.method == "yookassa":
+                invoice = await self._create_yookassa_invoice(payment, user, tariff, config)
+            elif payment.method == "crypto":
+                invoice = await self._create_crypto_invoice(payment, user, tariff, config)
+            else:
+                raise PaymentGatewayError("Для этого метода не требуется внешняя ссылка.")
+        except PaymentGatewayError:
+            raise
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            logger.warning("External payment provider is temporarily unavailable for payment %s: %s", payment_id, exc)
+            raise PaymentGatewayError("Платёжный шлюз временно недоступен. Повторите попытку через минуту.")
+        except Exception as exc:
+            logger.exception("Unexpected invoice creation failure for payment %s: %s", payment_id, exc)
+            raise PaymentGatewayError("Не удалось подготовить счёт. Попробуйте ещё раз.")
 
         await self.store.update_payment_provider(payment.id, invoice.provider_payment_id, invoice.payment_url)
         return invoice
-
     async def poll_pending(self) -> list[int]:
         payments = await self.store.list_pending_external_payments()
         paid_ids: list[int] = []
@@ -156,18 +167,32 @@ class PaymentService:
             },
         }
 
-        async with aiohttp.ClientSession(auth=auth, headers=headers) as session:
-            async with session.post("https://api.yookassa.ru/v3/payments", json=payload) as resp:
-                data = await resp.json(content_type=None)
-                if resp.status not in (200, 201):
-                    raise PaymentGatewayError(self._yookassa_error_message(data, resp.status))
+        last_error: Exception | None = None
+        data: dict = {}
+        for attempt in range(1, YOOKASSA_REQUEST_RETRIES + 1):
+            try:
+                async with aiohttp.ClientSession(auth=auth, headers=headers, timeout=YOOKASSA_REQUEST_TIMEOUT) as session:
+                    async with session.post("https://api.yookassa.ru/v3/payments", json=payload) as resp:
+                        data = await resp.json(content_type=None)
+                        if resp.status not in (200, 201):
+                            raise PaymentGatewayError(self._yookassa_error_message(data, resp.status))
+                        break
+            except PaymentGatewayError:
+                raise
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                last_error = exc
+                logger.warning("YooKassa create invoice attempt %s/%s failed for payment %s: %s", attempt, YOOKASSA_REQUEST_RETRIES, payment.id, exc)
+                if attempt >= YOOKASSA_REQUEST_RETRIES:
+                    raise PaymentGatewayError("YooKassa временно не отвечает. Попробуйте ещё раз через минуту.") from exc
+                await asyncio.sleep(min(attempt, 2))
+        if not data and last_error:
+            raise PaymentGatewayError("YooKassa временно не отвечает. Попробуйте ещё раз через минуту.") from last_error
 
         confirmation = data.get("confirmation") or {}
         payment_url = confirmation.get("confirmation_url", "")
         if not payment_url:
             raise PaymentGatewayError("YooKassa вернула платёж без confirmation_url.")
         return ExternalInvoice(provider_payment_id=str(data["id"]), payment_url=payment_url)
-
     async def _check_yookassa_payment(self, payment: Payment, config: dict) -> bool:
         if not payment.provider_payment_id:
             return False
@@ -185,13 +210,26 @@ class PaymentService:
             raise PaymentGatewayError("YooKassa не настроена или отсутствует provider_payment_id.")
 
         auth = aiohttp.BasicAuth(shop_id, secret_key)
-        async with aiohttp.ClientSession(auth=auth) as session:
-            async with session.get(f"https://api.yookassa.ru/v3/payments/{provider_payment_id}") as resp:
-                data = await resp.json(content_type=None)
-                if resp.status != 200:
-                    raise PaymentGatewayError(self._yookassa_error_message(data, resp.status))
-        return data
-
+        last_error: Exception | None = None
+        for attempt in range(1, YOOKASSA_REQUEST_RETRIES + 1):
+            try:
+                async with aiohttp.ClientSession(auth=auth, timeout=YOOKASSA_REQUEST_TIMEOUT) as session:
+                    async with session.get(f"https://api.yookassa.ru/v3/payments/{provider_payment_id}") as resp:
+                        data = await resp.json(content_type=None)
+                        if resp.status != 200:
+                            raise PaymentGatewayError(self._yookassa_error_message(data, resp.status))
+                        return data
+            except PaymentGatewayError:
+                raise
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                last_error = exc
+                logger.warning("YooKassa fetch payment attempt %s/%s failed for %s: %s", attempt, YOOKASSA_REQUEST_RETRIES, provider_payment_id, exc)
+                if attempt >= YOOKASSA_REQUEST_RETRIES:
+                    raise PaymentGatewayError("YooKassa временно не отвечает. Не удалось проверить статус оплаты.") from exc
+                await asyncio.sleep(min(attempt, 2))
+        if last_error:
+            raise PaymentGatewayError("YooKassa временно не отвечает. Не удалось проверить статус оплаты.") from last_error
+        raise PaymentGatewayError("Не удалось проверить статус оплаты.")
     async def _create_crypto_invoice(self, payment: Payment, user: User, tariff: Tariff, config: dict) -> ExternalInvoice:
         token = (config.get("crypto_pay_token") or "").strip()
         use_testnet = bool(config.get("crypto_pay_use_testnet"))

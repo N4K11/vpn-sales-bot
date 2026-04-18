@@ -1463,13 +1463,13 @@ class Store:
         return stats
     async def list_admin_users(self) -> list[User]:
         async with self.session_factory() as session:
-            result = await session.scalars(
-                select(User)
-                .where(User.admin_role != 'user')
-                .order_by(User.admin_role.asc(), User.created_at.asc())
-            )
+            stmt = select(User).order_by(User.admin_role.asc(), User.created_at.asc())
+            if settings.admin_ids:
+                stmt = stmt.where((User.admin_role != 'user') | (User.telegram_id.in_(tuple(settings.admin_ids))))
+            else:
+                stmt = stmt.where(User.admin_role != 'user')
+            result = await session.scalars(stmt)
             return list(result)
-
     async def set_user_admin_role(self, user_id: int, role: str) -> User | None:
         normalized_role = (role or 'user').strip().lower()
         if normalized_role not in {'user', 'support', 'finance', 'ops', 'admin', 'owner'}:
