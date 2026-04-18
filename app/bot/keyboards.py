@@ -290,37 +290,44 @@ def payment_methods_keyboard(tariff_id: int, methods: list[str], extend_subscrip
     return builder.as_markup()
 
 
-def admin_panel_keyboard():
+def admin_panel_keyboard(role: str = 'owner'):
     builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text='👥 Пользователи', callback_data='adm:users:filters'),
-        InlineKeyboardButton(text='🖥️ Серверы', callback_data='adm:servers'),
-    )
-    builder.row(
-        InlineKeyboardButton(text='📦 Тарифы', callback_data='adm:tariffs'),
-        InlineKeyboardButton(text='💳 Оплаты', callback_data='adm:payments'),
-    )
-    builder.row(
-        InlineKeyboardButton(text='💰 Финансы', callback_data='adm:finance'),
-        InlineKeyboardButton(text='📈 Аналитика', callback_data='adm:analytics'),
-    )
-    builder.row(InlineKeyboardButton(text='📝 Тексты', callback_data='adm:texts'))
-    builder.row(
-        InlineKeyboardButton(text='📚 Инструкции', callback_data='adm:guide'),
-        InlineKeyboardButton(text='🌍 Резерв', callback_data='adm:reserve'),
-    )
-    builder.row(
-        InlineKeyboardButton(text='🎁 Рефералы', callback_data='adm:referral'),
-        InlineKeyboardButton(text='🧪 Пробный доступ', callback_data='adm:trial'),
-    )
-    builder.row(
-        InlineKeyboardButton(text='📣 Рассылка', callback_data='adm:broadcast'),
-        InlineKeyboardButton(text='🗄️ Бэкап', callback_data='adm:backup'),
-    )
-    builder.row(InlineKeyboardButton(text='🚀 Обновления', callback_data='adm:updates'))
+    if role in {'owner', 'admin', 'support', 'finance'}:
+        builder.row(InlineKeyboardButton(text='?? ????????????', callback_data='adm:users:filters'))
+    if role in {'owner', 'admin', 'ops'}:
+        builder.row(InlineKeyboardButton(text='??? ???????', callback_data='adm:servers'))
+    if role in {'owner', 'admin', 'finance'}:
+        builder.row(
+            InlineKeyboardButton(text='?? ??????', callback_data='adm:tariffs'),
+            InlineKeyboardButton(text='?? ??????', callback_data='adm:payments'),
+        )
+        builder.row(
+            InlineKeyboardButton(text='?? ???????', callback_data='adm:finance'),
+            InlineKeyboardButton(text='?? ?????????', callback_data='adm:analytics'),
+        )
+    if role in {'owner', 'admin', 'support'}:
+        builder.row(InlineKeyboardButton(text='?? ??????', callback_data='adm:texts'))
+        builder.row(
+            InlineKeyboardButton(text='?? ??????????', callback_data='adm:guide'),
+            InlineKeyboardButton(text='?? ??????', callback_data='adm:reserve'),
+        )
+    if role in {'owner', 'admin'}:
+        builder.row(
+            InlineKeyboardButton(text='?? ????????', callback_data='adm:referral'),
+            InlineKeyboardButton(text='?? ??????? ??????', callback_data='adm:trial'),
+        )
+        builder.row(
+            InlineKeyboardButton(text='?? ????????', callback_data='adm:broadcast'),
+            InlineKeyboardButton(text='??? ?????', callback_data='adm:backup'),
+        )
+    if role == 'owner':
+        builder.row(
+            InlineKeyboardButton(text='??? ????', callback_data='adm:roles'),
+            InlineKeyboardButton(text='?? ??????', callback_data='adm:audit'),
+        )
+    builder.row(InlineKeyboardButton(text='?? ??????????', callback_data='adm:updates'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
-
 
 def analytics_keyboard():
     builder = InlineKeyboardBuilder()
@@ -476,23 +483,42 @@ def users_list_keyboard(users, filter_key: str, page: int, total: int, page_size
     return builder.as_markup()
 
 
-def user_actions_keyboard(user_id: int, is_blocked: bool, filter_key: str, page: int, can_manage_block: bool = True):
+def user_actions_keyboard(
+    user_id: int,
+    is_blocked: bool,
+    filter_key: str,
+    page: int,
+    can_manage_block: bool = True,
+    can_grant_balance: bool = True,
+    can_grant_access: bool = True,
+    can_view_diagnostics: bool = True,
+    can_manage_role: bool = False,
+):
     builder = InlineKeyboardBuilder()
+    top_row = []
+    if can_grant_balance:
+        top_row.append(InlineKeyboardButton(text='?? ?????? ??????', callback_data=f'adm:user:balance:{user_id}:{filter_key}:{page}'))
+    if can_grant_access:
+        top_row.append(InlineKeyboardButton(text='?? ?????? ??????', callback_data=f'adm:user:key:{user_id}:{filter_key}:{page}'))
+    if top_row:
+        builder.row(*top_row)
     builder.row(
-        InlineKeyboardButton(text='💰 Выдать баланс', callback_data=f'adm:user:balance:{user_id}:{filter_key}:{page}'),
-        InlineKeyboardButton(text='🔑 Выдать доступ', callback_data=f'adm:user:key:{user_id}:{filter_key}:{page}'),
+        InlineKeyboardButton(text='?? ????????', callback_data=f'adm:user:ops:{user_id}:{filter_key}:{page}'),
+        InlineKeyboardButton(text='?? ????????', callback_data=f'adm:user:refs:{user_id}:{filter_key}:{page}'),
     )
-    builder.row(
-        InlineKeyboardButton(text='🧾 Операции', callback_data=f'adm:user:ops:{user_id}:{filter_key}:{page}'),
-        InlineKeyboardButton(text='👥 Рефералы', callback_data=f'adm:user:refs:{user_id}:{filter_key}:{page}'),
-    )
+    extra_row = []
+    if can_view_diagnostics:
+        extra_row.append(InlineKeyboardButton(text='?? ???????????', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
+    if can_manage_role:
+        extra_row.append(InlineKeyboardButton(text='??? ????', callback_data=f'adm:user:role:{user_id}:{filter_key}:{page}'))
+    if extra_row:
+        builder.row(*extra_row)
     if can_manage_block:
-        block_text = '✅ Разблокировать' if is_blocked else '🚫 Заблокировать'
+        block_text = '? ??????????????' if is_blocked else '?? ?????????????'
         builder.row(InlineKeyboardButton(text=block_text, callback_data=f'adm:user:block:{user_id}:{filter_key}:{page}'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:users:{filter_key}:{page}'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
-
 
 def user_operations_keyboard(user_id: int, filter_key: str, page: int):
     builder = InlineKeyboardBuilder()
@@ -554,41 +580,41 @@ def servers_keyboard(servers):
 def server_actions_keyboard(server_id: int, panel_url: str | None = None, agent_configured: bool = False, agent_online: bool = False, billing_configured: bool = False):
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text='🔄 Проверить сервер', callback_data=f'adm:server:refreshone:{server_id}'),
-        InlineKeyboardButton(text='👁️ В выдачу / скрыть', callback_data=f'adm:server:toggle:{server_id}'),
+        InlineKeyboardButton(text='?? ????????? ??????', callback_data=f'adm:server:refreshone:{server_id}'),
+        InlineKeyboardButton(text='??? ? ?????? / ??????', callback_data=f'adm:server:toggle:{server_id}'),
     )
     builder.row(
-        InlineKeyboardButton(text='📊 Трафик ключей', callback_data='adm:server:usage'),
-        InlineKeyboardButton(text='🧪 Пробный режим', callback_data=f'adm:server:trial:{server_id}'),
+        InlineKeyboardButton(text='?? ?????? ??????', callback_data='adm:server:usage'),
+        InlineKeyboardButton(text='?? ??????? ?????', callback_data=f'adm:server:trial:{server_id}'),
     )
     builder.row(
-        InlineKeyboardButton(text=('💳 Изменить оплату' if billing_configured else '💳 Настроить оплату'), callback_data=f'adm:server:billingcfg:{server_id}'),
-        InlineKeyboardButton(text='✅ Отметить оплату', callback_data=f'adm:server:billingpaid:{server_id}'),
+        InlineKeyboardButton(text=('?? ???????? ??????' if billing_configured else '?? ????????? ??????'), callback_data=f'adm:server:billingcfg:{server_id}'),
+        InlineKeyboardButton(text='? ???????? ??????', callback_data=f'adm:server:billingpaid:{server_id}'),
     )
+    builder.row(InlineKeyboardButton(text='?? ??????? ?????', callback_data=f'adm:server:failures:{server_id}'))
     if agent_configured:
         builder.row(
-            InlineKeyboardButton(text=f'🤖 Агент {"онлайн" if agent_online else "оффлайн"}', callback_data=f'adm:server:agentstatus:{server_id}'),
-            InlineKeyboardButton(text='🧩 Перенастроить агент', callback_data=f'adm:server:agentcfg:{server_id}'),
+            InlineKeyboardButton(text=f'?? ????? {"??????" if agent_online else "???????"}', callback_data=f'adm:server:agentstatus:{server_id}'),
+            InlineKeyboardButton(text='?? ????????????? ?????', callback_data=f'adm:server:agentcfg:{server_id}'),
         )
         builder.row(
-            InlineKeyboardButton(text='♻️ Рестарт 3x-ui', callback_data=f'adm:server:agentcmd:{server_id}:restart_3x_ui'),
-            InlineKeyboardButton(text='🛰️ Рестарт Xray', callback_data=f'adm:server:agentcmd:{server_id}:restart_xray'),
+            InlineKeyboardButton(text='?? ??????? 3x-ui', callback_data=f'adm:server:agentcmd:{server_id}:restart_3x_ui'),
+            InlineKeyboardButton(text='??? ??????? Xray', callback_data=f'adm:server:agentcmd:{server_id}:restart_xray'),
         )
         builder.row(
-            InlineKeyboardButton(text='⌨️ Своя команда', callback_data=f'adm:server:agentcustom:{server_id}'),
-            InlineKeyboardButton(text='🧹 Отключить агент', callback_data=f'adm:server:agentclear:{server_id}'),
+            InlineKeyboardButton(text='?? ???? ???????', callback_data=f'adm:server:agentcustom:{server_id}'),
+            InlineKeyboardButton(text='?? ????????? ?????', callback_data=f'adm:server:agentclear:{server_id}'),
         )
     else:
-        builder.row(InlineKeyboardButton(text='🤖 Подключить агент Ubuntu', callback_data=f'adm:server:agentcfg:{server_id}'))
+        builder.row(InlineKeyboardButton(text='?? ?????????? ????? Ubuntu', callback_data=f'adm:server:agentcfg:{server_id}'))
     if panel_url:
-        builder.row(InlineKeyboardButton(text='🔗 Открыть панель', url=panel_url))
-    builder.row(InlineKeyboardButton(text='🗑️ Удалить сервер', callback_data=f'adm:server:delete:{server_id}'))
+        builder.row(InlineKeyboardButton(text='?? ??????? ??????', url=panel_url))
+    builder.row(InlineKeyboardButton(text='??? ??????? ??????', callback_data=f'adm:server:delete:{server_id}'))
     builder.row(
         InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:servers'),
         InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'),
     )
     return builder.as_markup()
-
 
 def referral_admin_keyboard(is_visible: bool):
     visibility = 'скрыть раздел' if is_visible else 'показать раздел'
@@ -643,10 +669,17 @@ def broadcast_filters_keyboard():
 
 def updates_admin_keyboard(can_trigger: bool, update_available: bool = False):
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='🔄 Проверить обновления', callback_data='adm:updates'))
+    builder.row(InlineKeyboardButton(text='?? ????????? ??????????', callback_data='adm:updates'))
     if can_trigger:
-        button_title = '🆕 Обновить сейчас' if update_available else '🚀 Обновить сейчас'
-        builder.row(InlineKeyboardButton(text=button_title, callback_data='adm:updates:run'))
+        builder.row(InlineKeyboardButton(text='?? ???????? ????' if update_available else '?? ???????? ??????', callback_data='adm:updates:run'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
+    return builder.as_markup()
+
+
+def update_notice_keyboard(can_trigger: bool):
+    builder = InlineKeyboardBuilder()
+    if can_trigger:
+        builder.row(InlineKeyboardButton(text='?? ???????? ????', callback_data='adm:updates:run'))
+    builder.row(InlineKeyboardButton(text='?? ??????? ?????? ??????????', callback_data='adm:updates'))
     return builder.as_markup()

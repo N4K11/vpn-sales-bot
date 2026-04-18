@@ -15,11 +15,13 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.utils import is_future_datetime
 from app.db.models import (
+    AdminActionLog,
     AppSetting,
     BalanceOperation,
     ContentPage,
     FeatureToggle,
     Payment,
+    ProvisioningFailureLog,
     Server,
     Subscription,
     Tariff,
@@ -156,43 +158,44 @@ class Store:
 
     async def get_or_create_user(self, tg_user: TelegramUser, referral_code: str | None = None) -> User:
         async with self.session_factory() as session:
-            user = await session.scalar(select(User).where(User.telegram_id == tg_user.id))
-            changed = False
-            if not user:
+            result = await session.execute(select(User).where(User.telegram_id == tg_user.id))
+            user = result.scalar_one_or_none()
+            if user is None:
                 user = User(
                     telegram_id=tg_user.id,
                     username=tg_user.username,
-                    full_name=tg_user.full_name,
+                    full_name=' '.join(part for part in [tg_user.first_name, tg_user.last_name] if part).strip() or None,
+                    invite_code=f'ref{tg_user.id}',
+                    referred_by_code=referral_code,
+                    admin_role='owner' if tg_user.id in settings.admin_ids else 'user',
                     is_admin=tg_user.id in settings.admin_ids,
-                    invite_code=f"ref{tg_user.id}",
                 )
-                if referral_code and referral_code != user.invite_code:
-                    referrer = await session.scalar(select(User).where(User.invite_code == referral_code))
-                    if referrer:
-                        user.referrer_id = referrer.id
                 session.add(user)
-                changed = True
-            else:
-                desired_admin = tg_user.id in settings.admin_ids
-                if user.username != tg_user.username:
-                    user.username = tg_user.username
-                    changed = True
-                if user.full_name != tg_user.full_name:
-                    user.full_name = tg_user.full_name
-                    changed = True
-                if user.is_admin != desired_admin:
-                    user.is_admin = desired_admin
-                    changed = True
-                if referral_code and not user.referrer_id and referral_code != user.invite_code:
-                    referrer = await session.scalar(select(User).where(User.invite_code == referral_code))
-                    if referrer:
-                        user.referrer_id = referrer.id
-                        changed = True
+                await session.commit()
+                await session.refresh(user)
+                return user
 
-            if changed:
+            updated = False
+            full_name = ' '.join(part for part in [tg_user.first_name, tg_user.last_name] if part).strip() or None
+            if user.username != tg_user.username:
+                user.username = tg_user.username
+                updated = True
+            if user.full_name != full_name:
+                user.full_name = full_name
+                updated = True
+            expected_role = 'owner' if tg_user.id in settings.admin_ids else (user.admin_role or 'user')
+            if user.admin_role != expected_role:
+                user.admin_role = expected_role
+                updated = True
+            expected_is_admin = user.admin_role != 'user' or tg_user.id in settings.admin_ids
+            if user.is_admin != expected_is_admin:
+                user.is_admin = expected_is_admin
+                updated = True
+            if updated:
                 await session.commit()
                 await session.refresh(user)
             return user
+
     async def get_user_by_telegram_id(self, telegram_id: int) -> User | None:
         async with self.session_factory() as session:
             return await session.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -803,6 +806,10 @@ class Store:
     async def get_payment_by_payload(self, payload: str) -> Payment | None:
         async with self.session_factory() as session:
             return await session.scalar(select(Payment).where(Payment.payload == payload))
+
+    async def get_payment_by_provider_payment_id(self, provider_payment_id: str) -> Payment | None:
+        async with self.session_factory() as session:
+            return await session.scalar(select(Payment).where(Payment.provider_payment_id == provider_payment_id))
 
     async def update_payment_provider(self, payment_id: int, provider_payment_id: str, provider_url: str) -> None:
         async with self.session_factory() as session:
@@ -1454,6 +1461,113 @@ class Store:
             await session.commit()
 
         return stats
+    async def list_admin_users(self) -> list[User]:
+        async with self.session_factory() as session:
+            result = await session.scalars(
+                select(User)
+                .where(User.admin_role != 'user')
+                .order_by(User.admin_role.asc(), User.created_at.asc())
+            )
+            return list(result)
+
+    async def set_user_admin_role(self, user_id: int, role: str) -> User | None:
+        normalized_role = (role or 'user').strip().lower()
+        if normalized_role not in {'user', 'support', 'finance', 'ops', 'admin', 'owner'}:
+            normalized_role = 'user'
+        async with self.session_factory() as session:
+            user = await session.get(User, user_id)
+            if not user:
+                return None
+            user.admin_role = normalized_role
+            user.is_admin = normalized_role != 'user'
+            await session.commit()
+            await session.refresh(user)
+            return user
+
+    async def log_admin_action(
+        self,
+        *,
+        actor_user_id: int | None,
+        action: str,
+        description: str,
+        target_user_id: int | None = None,
+        target_server_id: int | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        async with self.session_factory() as session:
+            session.add(
+                AdminActionLog(
+                    actor_user_id=actor_user_id,
+                    action=(action or '').strip() or 'unknown',
+                    description=(description or '').strip(),
+                    target_user_id=target_user_id,
+                    target_server_id=target_server_id,
+                    details_json=json.dumps(details or {}, ensure_ascii=False),
+                )
+            )
+            await session.commit()
+
+    async def list_admin_action_logs(self, limit: int = 30) -> list[AdminActionLog]:
+        async with self.session_factory() as session:
+            result = await session.scalars(
+                select(AdminActionLog)
+                .options(
+                    selectinload(AdminActionLog.actor),
+                    selectinload(AdminActionLog.target_user),
+                    selectinload(AdminActionLog.target_server),
+                )
+                .order_by(desc(AdminActionLog.created_at))
+                .limit(limit)
+            )
+            return list(result)
+
+    async def record_provisioning_failure(
+        self,
+        *,
+        stage: str,
+        error: str,
+        server_id: int | None = None,
+        server_name: str | None = None,
+        subscription_id: int | None = None,
+        user_telegram_id: int | None = None,
+    ) -> None:
+        async with self.session_factory() as session:
+            session.add(
+                ProvisioningFailureLog(
+                    stage=(stage or '').strip() or 'unknown',
+                    error=(error or '').strip() or 'Неизвестная ошибка',
+                    server_id=server_id,
+                    server_name=(server_name or '').strip(),
+                    subscription_id=subscription_id,
+                    user_telegram_id=user_telegram_id,
+                )
+            )
+            await session.commit()
+
+    async def list_provisioning_failures(
+        self,
+        *,
+        limit: int = 30,
+        server_id: int | None = None,
+        user_telegram_id: int | None = None,
+    ) -> list[ProvisioningFailureLog]:
+        stmt = (
+            select(ProvisioningFailureLog)
+            .options(
+                selectinload(ProvisioningFailureLog.server),
+                selectinload(ProvisioningFailureLog.subscription),
+            )
+            .order_by(desc(ProvisioningFailureLog.created_at))
+            .limit(limit)
+        )
+        if server_id is not None:
+            stmt = stmt.where(ProvisioningFailureLog.server_id == server_id)
+        if user_telegram_id is not None:
+            stmt = stmt.where(ProvisioningFailureLog.user_telegram_id == user_telegram_id)
+        async with self.session_factory() as session:
+            result = await session.scalars(stmt)
+            return list(result)
+
     async def get_admin_metrics(self) -> dict[str, int]:
         now = datetime.utcnow()
         async with self.session_factory() as session:
@@ -1466,11 +1580,17 @@ class Store:
             ) or 0
             pending_payments = await session.scalar(select(func.count(Payment.id)).where(Payment.status == "pending")) or 0
             servers = await session.scalar(select(func.count(Server.id))) or 0
+            admin_users = await session.scalar(select(func.count(User.id)).where(User.admin_role != 'user')) or 0
+            provisioning_failures = await session.scalar(
+                select(func.count(ProvisioningFailureLog.id)).where(ProvisioningFailureLog.created_at >= now - timedelta(hours=3))
+            ) or 0
             return {
                 "users": int(total_users),
                 "active_users": int(active_users),
                 "pending_payments": int(pending_payments),
                 "servers": int(servers),
+                "admins": int(admin_users),
+                "recent_provisioning_failures": int(provisioning_failures),
             }
 
     async def list_users(self, filter_key: str = "all", page: int = 1, page_size: int = 8) -> tuple[list[User], int]:
@@ -1521,4 +1641,11 @@ class Store:
     async def record_failed_server_check(self, server_id: int, error: str) -> None:
         error_text = (error or "Неизвестная ошибка").strip() or "Неизвестная ошибка"
         logger.warning("Server check failed for %s: %s", server_id, error_text)
+        server = await self.get_server(server_id)
         await self.update_server_health(server_id, "offline", 0, 0, error_text)
+        await self.record_provisioning_failure(
+            stage='server_check',
+            error=error_text,
+            server_id=server_id,
+            server_name=getattr(server, 'name', ''),
+        )

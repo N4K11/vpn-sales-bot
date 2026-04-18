@@ -30,6 +30,7 @@ class User(TimestampMixin, Base):
     username: Mapped[Optional[str]] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255), default="")
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    admin_role: Mapped[str] = mapped_column(String(30), default="user", nullable=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     invite_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     referrer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
@@ -151,6 +152,37 @@ class BalanceOperation(TimestampMixin, Base):
 
     user: Mapped["User"] = relationship(back_populates="balance_operations")
     payment: Mapped[Optional["Payment"]] = relationship(back_populates="operations")
+
+
+class AdminActionLog(TimestampMixin, Base):
+    __tablename__ = "admin_action_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    target_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), index=True)
+    target_server_id: Mapped[Optional[int]] = mapped_column(ForeignKey("servers.id"), index=True)
+    details_json: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    actor: Mapped[Optional["User"]] = relationship(foreign_keys=[actor_user_id])
+    target_user: Mapped[Optional["User"]] = relationship(foreign_keys=[target_user_id])
+    target_server: Mapped[Optional["Server"]] = relationship(foreign_keys=[target_server_id])
+
+
+class ProvisioningFailureLog(TimestampMixin, Base):
+    __tablename__ = "provisioning_failure_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    stage: Mapped[str] = mapped_column(String(50), nullable=False)
+    error: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    server_id: Mapped[Optional[int]] = mapped_column(ForeignKey("servers.id"), index=True)
+    subscription_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subscriptions.id"), index=True)
+    user_telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True)
+    server_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+
+    server: Mapped[Optional["Server"]] = relationship(foreign_keys=[server_id])
+    subscription: Mapped[Optional["Subscription"]] = relationship(foreign_keys=[subscription_id])
 
 
 class FeatureToggle(Base):

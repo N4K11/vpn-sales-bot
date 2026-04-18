@@ -9,5 +9,9 @@
         reverse_proxy bot:8080
     }
 
+    handle /webhooks/* {
+        reverse_proxy bot:8080
+    }
+
     respond 404
 }

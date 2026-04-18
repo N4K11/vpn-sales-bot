@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import logging
@@ -9,10 +9,11 @@ from zoneinfo import ZoneInfo
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.bot.controller import BotController
-from app.bot.keyboards import access_result_keyboard
+from app.bot.keyboards import access_result_keyboard, update_notice_keyboard
 from app.config import settings
 from app.db.session import init_db
 from app.logging_config import setup_logging
@@ -48,7 +49,7 @@ def render_subscription_link_lines(subscription) -> list[str]:
     url = build_subscription_url(subscription)
     if url:
         return [
-            'Одна ссылка уже собрала внутри все активные серверы вашей подписки.',
+            'Одна ссылка уже собрала внутри все активные серверы вашего доступа.',
             url,
         ]
     return [
@@ -59,7 +60,7 @@ def render_subscription_link_lines(subscription) -> list[str]:
 
 def render_payment_activation_message(subscription, vpn_keys: list, extended: bool = False, reserve_url: str = '') -> str:
     if extended:
-        title = '🕒 Подписка продлена'
+        title = '🕒 Доступ продлён'
     elif getattr(subscription, 'is_trial', False):
         title = '🧪 Пробный доступ активирован'
     else:
@@ -69,7 +70,7 @@ def render_payment_activation_message(subscription, vpn_keys: list, extended: bo
     lines = [
         title,
         '',
-        f"📦 Тариф: {subscription.tariff.name if getattr(subscription, 'tariff', None) else ('Пробный доступ' if getattr(subscription, 'is_trial', False) else 'Ручной доступ')}",
+        f"📦 Формат: {subscription.tariff.name if getattr(subscription, 'tariff', None) else ('Пробный доступ' if getattr(subscription, 'is_trial', False) else 'Ручной доступ')}",
         f'⏳ Действует до: {subscription.ends_at:%d.%m.%Y %H:%M}',
         f'🌐 Серверов в доступе: {len(server_names) or len(vpn_keys)}',
     ]
@@ -96,8 +97,8 @@ def render_expiry_warning_message(subscription) -> str:
         f'Осталось: {remains}',
         f'Действует до: {subscription.ends_at:%d.%m.%Y %H:%M}',
         '',
-        'Продлите подписку заранее, чтобы не потерять доступ.',
-        'После продления бот обновит все активные ключи внутри этой подписки.',
+        'Продлите доступ заранее, чтобы не потерять подключение.',
+        'После продления бот обновит все активные ключи внутри этого доступа.',
     ]
     return '\n'.join(lines)
 
@@ -107,6 +108,7 @@ def _provisioning_stage_title(stage: str) -> str:
         'provision': 'новая выдача',
         'rotate': 'обновление действующего ключа',
         'replace': 'ручная замена ключа',
+        'server_check': 'проверка сервера',
     }.get(stage, stage)
 
 
@@ -118,7 +120,7 @@ def render_provisioning_alert_message(snapshot: dict[str, object]) -> str:
     stage_lines = [
         f"• {_provisioning_stage_title(str(item['stage']))} — {item['count']}"
         for item in snapshot.get('stage_breakdown', [])
-    ] or ['• Детализация по этапам пока пуста.']
+    ] or ['• Детализация по этапам пока пустая.']
     error_lines = [
         f"• {item['count']}x — {item['error']}"
         for item in snapshot.get('top_errors', [])
@@ -150,12 +152,41 @@ async def reserve_access_url_for(store: Store, user) -> str:
     return build_reserve_access_url(user)
 
 
-async def notify_admins(bot: Bot, text: str) -> None:
-    for admin_id in settings.admin_ids:
+async def notify_admins(
+    bot: Bot,
+    store: Store,
+    text: str,
+    *,
+    reply_markup=None,
+    parse_mode: ParseMode | None = None,
+) -> None:
+    targets = set(settings.admin_ids)
+    try:
+        admin_users = await store.list_admin_users()
+        targets.update(user.telegram_id for user in admin_users if getattr(user, 'telegram_id', None))
+    except Exception as exc:
+        logger.warning('Failed to load admin recipients from DB: %s', exc)
+    for admin_id in sorted(targets):
         try:
-            await bot.send_message(admin_id, text)
+            await bot.send_message(admin_id, text, reply_markup=reply_markup, parse_mode=parse_mode)
         except Exception as exc:
             logger.warning('Failed to notify admin %s: %s', admin_id, exc)
+
+
+async def activate_paid_payment(bot: Bot, store: Store, provisioning: ProvisioningService, payment_id: int) -> bool:
+    payment, user, _ = await store.get_payment_bundle(payment_id)
+    if not payment or payment.status != 'paid':
+        return False
+    subscription, vpn_keys, extended = await provisioning.activate_payment(payment_id)
+    if not user or not subscription:
+        return False
+    reserve_url = await reserve_access_url_for(store, getattr(subscription, 'user', None))
+    await bot.send_message(
+        user.telegram_id,
+        render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
+        reply_markup=access_result_keyboard(build_subscription_action_rows(subscription), reserve_url=reserve_url),
+    )
+    return True
 
 
 async def payment_polling_loop(bot: Bot, store: Store, payments: PaymentService, provisioning: ProvisioningService) -> None:
@@ -163,15 +194,7 @@ async def payment_polling_loop(bot: Bot, store: Store, payments: PaymentService,
         try:
             paid_ids = await payments.poll_pending()
             for payment_id in paid_ids:
-                _, user, _ = await store.get_payment_bundle(payment_id)
-                subscription, vpn_keys, extended = await provisioning.activate_payment(payment_id)
-                if user and subscription:
-                    reserve_url = await reserve_access_url_for(store, getattr(subscription, 'user', None))
-                    await bot.send_message(
-                        user.telegram_id,
-                        render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
-                        reply_markup=access_result_keyboard(build_subscription_action_rows(subscription), reserve_url=reserve_url),
-                    )
+                await activate_paid_payment(bot, store, provisioning, payment_id)
         except Exception as exc:
             logger.exception('Payment polling loop failed: %s', exc)
         await asyncio.sleep(max(settings.poll_payments_every_seconds, 30))
@@ -249,6 +272,7 @@ async def server_alerts_loop(bot: Bot, store: Store, provisioning: ProvisioningS
                     if state_key != 'ok':
                         await notify_admins(
                             bot,
+                            store,
                             '\n'.join([
                                 '🚨 Алерт по серверу',
                                 '',
@@ -266,6 +290,7 @@ async def server_alerts_loop(bot: Bot, store: Store, provisioning: ProvisioningS
                 if state_key == 'ok':
                     await notify_admins(
                         bot,
+                        store,
                         '\n'.join([
                             '✅ Сервер восстановился',
                             '',
@@ -276,6 +301,7 @@ async def server_alerts_loop(bot: Bot, store: Store, provisioning: ProvisioningS
                 else:
                     await notify_admins(
                         bot,
+                        store,
                         '\n'.join([
                             '🚨 Алерт по серверу',
                             '',
@@ -297,6 +323,7 @@ async def server_alerts_loop(bot: Bot, store: Store, provisioning: ProvisioningS
                     if last_provisioning_state != 'ok':
                         await notify_admins(
                             bot,
+                            store,
                             '\n'.join([
                                 '✅ Выдача ключей стабилизировалась',
                                 '',
@@ -304,7 +331,7 @@ async def server_alerts_loop(bot: Bot, store: Store, provisioning: ProvisioningS
                             ]),
                         )
                 else:
-                    await notify_admins(bot, render_provisioning_alert_message(provisioning_snapshot))
+                    await notify_admins(bot, store, render_provisioning_alert_message(provisioning_snapshot))
                 last_provisioning_state = provisioning_state
         except Exception as exc:
             logger.exception('Server alerts loop failed: %s', exc)
@@ -354,11 +381,12 @@ async def server_billing_reminders_loop(bot: Bot, store: Store) -> None:
                         '',
                         'После оплаты откройте карточку сервера и нажмите «✅ Отметить оплату».',
                     ])
-                await notify_admins(bot, text)
+                await notify_admins(bot, store, text)
                 await store.set_server_billing_last_notice(int(item['server_id']), token)
         except Exception as exc:
             logger.exception('Server billing reminders loop failed: %s', exc)
         await asyncio.sleep(SERVER_BILLING_REMINDER_INTERVAL_SECONDS)
+
 
 async def cleanup_loop(store: Store, backups: BackupService) -> None:
     while True:
@@ -372,24 +400,42 @@ async def cleanup_loop(store: Store, backups: BackupService) -> None:
         await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
 
-async def update_notifications_loop(bot: Bot, updater: UpdateService) -> None:
+def render_update_notification(status) -> str:
+    short_rev = status.latest_revision[:7] if status.latest_revision else '—'
+    commit_line = (status.latest_commit_message or 'Описание коммита не найдено.').splitlines()[0].strip()
+    count = 1 if status.update_available else 0
+    lines = [
+        '📦 Доступно обновление!' if status.update_available else '✅ Новых обновлений нет',
+        '',
+        f'📦 Доступно обновлений: {count}',
+    ]
+    if status.update_available:
+        lines.extend([
+            '',
+            'Последние изменения:',
+            f'`{short_rev}` Версия {status.latest_version}: {commit_line}',
+        ])
+    elif status.check_error:
+        lines.extend(['', f'⚠️ Не удалось проверить GitHub: {status.check_error}'])
+    else:
+        lines.extend(['', f'Текущая версия: {status.current_version}'])
+    return '\n'.join(lines)
+
+
+async def update_notifications_loop(bot: Bot, store: Store, updater: UpdateService) -> None:
     last_notified_marker = ''
     while True:
         try:
             status = await updater.get_status()
             marker = f"{status.latest_version}:{status.latest_revision}"
             if status.update_available and marker and marker != last_notified_marker:
-                lines = [
-                    '🆕 Доступно обновление бота',
-                    '',
-                    f'Текущая версия: {status.current_version}',
-                    f"Текущая ревизия: {status.current_revision[:7] if status.current_revision else 'неизвестна'}",
-                    f'Новая версия: {status.latest_version}',
-                    f"Новый коммит: {status.latest_revision[:7] if status.latest_revision else 'неизвестен'}",
-                    '',
-                    'Откройте Админ-панель -> Обновления и нажмите «Обновить сейчас».',
-                ]
-                await notify_admins(bot, '\n'.join(lines))
+                await notify_admins(
+                    bot,
+                    store,
+                    render_update_notification(status),
+                    reply_markup=update_notice_keyboard(status.trigger_configured),
+                    parse_mode=ParseMode.MARKDOWN,
+                )
                 last_notified_marker = marker
             elif not status.update_available:
                 last_notified_marker = ''
@@ -420,8 +466,25 @@ async def build_storage():
     return MemoryStorage()
 
 
-async def start_subscription_server(store: Store, provisioning: ProvisioningService) -> web.AppRunner:
+async def start_subscription_server(store: Store, provisioning: ProvisioningService, payments: PaymentService, bot: Bot) -> web.AppRunner:
     app = create_subscription_web_app(store, provisioning)
+
+    async def yookassa_webhook_handler(request: web.Request) -> web.Response:
+        try:
+            payload = await request.json()
+        except Exception:
+            return web.json_response({'ok': False, 'error': 'invalid_json'}, status=400)
+        try:
+            result = await payments.process_yookassa_webhook(payload)
+            if result.marked_paid and result.payment_id:
+                await activate_paid_payment(bot, store, provisioning, result.payment_id)
+            return web.json_response({'ok': True, 'marked_paid': result.marked_paid, 'payment_id': result.payment_id})
+        except Exception as exc:
+            logger.exception('YooKassa webhook failed: %s', exc)
+            return web.json_response({'ok': False, 'error': 'internal_error'}, status=500)
+
+    app.router.add_post('/webhooks/yookassa', yookassa_webhook_handler)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host=settings.subscription_host, port=settings.subscription_port)
@@ -450,7 +513,7 @@ async def main() -> None:
     dp = Dispatcher(storage=storage)
     dp.include_router(BotController(bot=bot, store=store, payments=payments, provisioning=provisioning, backups=backups, updater=updater).router)
 
-    subscription_runner = await start_subscription_server(store, provisioning)
+    subscription_runner = await start_subscription_server(store, provisioning, payments, bot)
     tasks = [
         asyncio.create_task(payment_polling_loop(bot, store, payments, provisioning)),
         asyncio.create_task(maintenance_loop(provisioning)),
@@ -459,7 +522,7 @@ async def main() -> None:
         asyncio.create_task(server_billing_reminders_loop(bot, store)),
         asyncio.create_task(cleanup_loop(store, backups)),
         asyncio.create_task(backup_loop(bot, backups)),
-        asyncio.create_task(update_notifications_loop(bot, updater)),
+        asyncio.create_task(update_notifications_loop(bot, store, updater)),
     ]
     try:
         await dp.start_polling(bot)
@@ -482,11 +545,3 @@ def run() -> None:
 
 if __name__ == '__main__':
     run()
-
-
-
-
-
-
-
-
