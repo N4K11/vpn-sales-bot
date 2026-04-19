@@ -20,6 +20,36 @@ def _repair_text(value: str) -> str:
     return repaired
 
 
+def _repair_markup_texts(markup):
+    if markup is None:
+        return None
+    if getattr(markup, 'input_field_placeholder', None):
+        markup.input_field_placeholder = _repair_text(markup.input_field_placeholder)
+    inline_rows = getattr(markup, 'inline_keyboard', None)
+    if inline_rows:
+        for row in inline_rows:
+            for button in row:
+                if getattr(button, 'text', None):
+                    button.text = _repair_text(button.text)
+    reply_rows = getattr(markup, 'keyboard', None)
+    if reply_rows:
+        for row in reply_rows:
+            for button in row:
+                if getattr(button, 'text', None):
+                    button.text = _repair_text(button.text)
+    return markup
+
+
+_ORIGINAL_INLINE_AS_MARKUP = InlineKeyboardBuilder.as_markup
+
+
+def _patched_inline_as_markup(self, *args, **kwargs):
+    return _repair_markup_texts(_ORIGINAL_INLINE_AS_MARKUP(self, *args, **kwargs))
+
+
+InlineKeyboardBuilder.as_markup = _patched_inline_as_markup
+
+
 PROFILE_LABEL = '\U0001f464 \u041c\u043e\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c'
 BUY_LABEL = '\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c Air'
 HELP_LABEL = '\u2753 \u0421\u043f\u0440\u0430\u0432\u043a\u0430'
@@ -87,7 +117,13 @@ def build_main_menu(is_admin: bool, show_referral: bool, show_trial: bool, label
         rows.append([KeyboardButton(text=lb['nav_trial'])])
     if is_admin:
         rows.append([KeyboardButton(text=ADMIN_LABEL)])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0430\u0437\u0434\u0435\u043b')
+    return _repair_markup_texts(
+        ReplyKeyboardMarkup(
+            keyboard=rows,
+            resize_keyboard=True,
+            input_field_placeholder='\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0430\u0437\u0434\u0435\u043b',
+        )
+    )
 
 
 def _append_copy_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]]) -> None:
