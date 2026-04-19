@@ -27,6 +27,7 @@ from app.services.store import Store
 from app.services.subscription_links import build_reserve_access_url, build_subscription_url, subscription_server_names
 from app.services.subscription_server import create_subscription_web_app
 from app.services.updater import UpdateService
+from app.ui_hotfix import apply_ui_hotfixes, patch_main_symbols
 from app.utils import format_money
 
 logger = logging.getLogger(__name__)
@@ -648,6 +649,8 @@ async def main() -> None:
     session = AiohttpSession(proxy=settings.proxy_url) if settings.proxy_url else None
     bot = Bot(settings.bot_token, session=session)
     storage = await build_storage()
+    apply_ui_hotfixes()
+    patch_main_symbols(globals())
     dp = Dispatcher(storage=storage)
     dp.include_router(BotController(bot=bot, store=store, payments=payments, provisioning=provisioning, backups=backups, updater=updater).router)
 
