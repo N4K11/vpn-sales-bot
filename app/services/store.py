@@ -59,6 +59,21 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "renewal_discount_percent": "0",
 }
 
+
+
+def _repair_seed_text(value: str | None) -> str | None:
+    if not value:
+        return value
+    repaired = value
+    for _ in range(3):
+        try:
+            candidate = repaired.encode('cp1251').decode('utf-8')
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if candidate == repaired:
+            break
+        repaired = candidate
+    return repaired
 DEFAULT_CONTENT: dict[str, tuple[str, str]] = {
     'main': ('Р­РєСЂР°РЅ В«Р“Р»Р°РІРЅРѕРµ РјРµРЅСЋВ»', 'Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ РІ MyAir.\n\nР’С‹Р±РµСЂРёС‚Рµ РЅСѓР¶РЅС‹Р№ СЂР°Р·РґРµР» РЅРёР¶Рµ.'),
     'profile': ('Р­РєСЂР°РЅ В«РњРѕР№ РїСЂРѕС„РёР»СЊВ»', 'Р—РґРµСЃСЊ СЃРѕР±СЂР°РЅС‹ РІР°С€Рё Р°РєС‚РёРІРЅС‹Рµ РїРѕРґРїРёСЃРєРё, РєР»СЋС‡Рё РґРѕСЃС‚СѓРїР°, РѕР±С‰Р°СЏ СЃСЃС‹Р»РєР° Рё Р±Р°Р»Р°РЅСЃ.'),
@@ -114,7 +129,7 @@ USER_TEXT_CONTENT_KEYS: list[str] = ['main', 'profile', 'buy', 'help', 'referral
 BUTTON_LABEL_PAGE_KEYS: dict[str, str] = {'nav_profile': 'button_nav_profile', 'nav_buy': 'button_nav_buy', 'nav_help': 'button_nav_help', 'nav_referral': 'button_nav_referral', 'nav_trial': 'button_nav_trial', 'nav_home': 'button_nav_home', 'nav_back': 'button_nav_back', 'help_channel': 'button_help_channel', 'help_support': 'button_help_support', 'referral_copy': 'button_referral_copy', 'trial_activate': 'button_trial_activate', 'help_devices': 'button_help_devices', 'guide_ios': 'button_guide_ios', 'guide_android': 'button_guide_android', 'guide_windows': 'button_guide_windows', 'guide_macos': 'button_guide_macos', 'pay_stars': 'button_pay_stars', 'pay_yookassa': 'button_pay_yookassa', 'pay_crypto': 'button_pay_crypto', 'pay_balance': 'button_pay_balance', 'pay_open_invoice': 'button_pay_open_invoice', 'subscription_qr': 'button_subscription_qr', 'subscription_extend': 'button_subscription_extend', 'reserve_open': 'button_reserve_open', 'reserve_qr': 'button_reserve_qr', 'key_copy': 'button_key_copy', 'key_qr': 'button_key_qr', 'key_replace': 'button_key_replace', 'key_delete': 'button_key_delete'}
 USER_BUTTON_CONTENT_KEYS: list[str] = ['button_nav_profile', 'button_nav_buy', 'button_nav_help', 'button_nav_referral', 'button_nav_trial', 'button_nav_home', 'button_nav_back', 'button_help_channel', 'button_help_support', 'button_referral_copy', 'button_trial_activate', 'button_help_devices', 'button_guide_ios', 'button_guide_android', 'button_guide_windows', 'button_guide_macos', 'button_pay_stars', 'button_pay_yookassa', 'button_pay_crypto', 'button_pay_balance', 'button_pay_open_invoice', 'button_subscription_qr', 'button_subscription_extend', 'button_reserve_open', 'button_reserve_qr', 'button_key_copy', 'button_key_qr', 'button_key_replace', 'button_key_delete']
 CONTENT_PAGE_GROUPS: dict[str, list[str]] = {"texts": USER_TEXT_CONTENT_KEYS, "buttons": USER_BUTTON_CONTENT_KEYS}
-BUTTON_LABEL_DEFAULTS: dict[str, str] = {label_key: DEFAULT_CONTENT[page_key][1] for label_key, page_key in BUTTON_LABEL_PAGE_KEYS.items()}
+BUTTON_LABEL_DEFAULTS: dict[str, str] = {label_key: (_repair_seed_text(DEFAULT_CONTENT[page_key][1]) or DEFAULT_CONTENT[page_key][1]) for label_key, page_key in BUTTON_LABEL_PAGE_KEYS.items()}
 
 
 def repair_mojibake_text(value: str | None) -> str | None:
@@ -160,7 +175,7 @@ class Store:
                     session.add(AppSetting(key=key, value=value))
 
             for key, payload in DEFAULT_CONTENT.items():
-                title, body = payload
+                title, body = (_repair_seed_text(payload[0]) or payload[0], _repair_seed_text(payload[1]) or payload[1])
                 page = await session.get(ContentPage, key)
                 if not page:
                     session.add(ContentPage(key=key, title=title, body=body))
@@ -186,7 +201,7 @@ class Store:
             tariffs_count = await session.scalar(select(func.count(Tariff.id)))
             if not tariffs_count:
                 for tariff in DEFAULT_TARIFFS:
-                    session.add(Tariff(**tariff))
+                    session.add(Tariff(**{**tariff, 'name': _repair_seed_text(tariff['name']) or tariff['name'], 'description': _repair_seed_text(tariff['description']) or tariff['description']}))
 
             await session.commit()
 

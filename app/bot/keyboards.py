@@ -6,14 +6,28 @@ from urllib.parse import urlsplit
 from aiogram.types import CopyTextButton, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-PROFILE_LABEL = 'РЎР‚РЎСџРІР‚ВР’В¤ Р В РЎС™Р В РЎвЂўР В РІвЂћвЂ“ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋРІР‚С›Р В РЎвЂР В Р’В»Р РЋР Р‰'
-BUY_LABEL = 'Р В РЎСџР В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Air'
-HELP_LABEL = 'Р Р†РЎСљРІР‚Сљ Р В Р Р‹Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ Р В РЎвЂќР В Р’В°'
-REFERRAL_LABEL = 'РЎР‚РЎСџР вЂ№Р С“ Р В Р’В Р В Р’ВµР РЋРІР‚С›Р В Р’ВµР РЋР вЂљР В Р’В°Р В Р’В»Р РЋРІР‚в„–'
-TRIAL_LABEL = 'РЎР‚РЎСџР’В§Р вЂћ Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”'
-ADMIN_LABEL = 'Р Р†РЎв„ўРІвЂћСћР С—РЎвЂР РЏ Р В РЎвЂ™Р В РўвЂР В РЎВР В РЎвЂР В Р вЂ¦-Р В РЎвЂ”Р В Р’В°Р В Р вЂ¦Р В Р’ВµР В Р’В»Р РЋР Р‰'
-HOME_LABEL = 'РЎР‚РЎСџР РЏР’В  Р В РІР‚СљР В Р’В»Р В Р’В°Р В Р вЂ Р В Р вЂ¦Р В РЎвЂўР В Р’Вµ Р В РЎВР В Р’ВµР В Р вЂ¦Р РЋР вЂ№'
-BACK_LABEL = 'Р Р†РІР‚вЂќР вЂљ Р В РЎСљР В Р’В°Р В Р’В·Р В Р’В°Р В РўвЂ'
+
+def _repair_text(value: str) -> str:
+    repaired = value
+    for _ in range(3):
+        try:
+            candidate = repaired.encode('cp1251').decode('utf-8')
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if candidate == repaired:
+            break
+        repaired = candidate
+    return repaired
+
+
+PROFILE_LABEL = '?? ??? ???????'
+BUY_LABEL = '?????????? Air'
+HELP_LABEL = '? ???????'
+REFERRAL_LABEL = '?? ????????'
+TRIAL_LABEL = '?? ??????? ??????'
+ADMIN_LABEL = '?? ?????-??????'
+HOME_LABEL = '?? ??????? ????'
+BACK_LABEL = '? ?????'
 
 DEFAULT_USER_BUTTON_LABELS = {
     'nav_profile': PROFILE_LABEL,
@@ -23,32 +37,32 @@ DEFAULT_USER_BUTTON_LABELS = {
     'nav_trial': TRIAL_LABEL,
     'nav_home': HOME_LABEL,
     'nav_back': BACK_LABEL,
-    'help_channel': 'РЎР‚РЎСџРІР‚СљР в‚¬ Р В РЎв„ўР В Р’В°Р В Р вЂ¦Р В Р’В°Р В Р’В»',
-    'help_support': 'РЎР‚РЎСџРІР‚В Р’В Р В РЎСџР В РЎвЂўР В РўвЂР В РўвЂР В Р’ВµР РЋР вЂљР В Р’В¶Р В РЎвЂќР В Р’В°',
-    'referral_copy': 'РЎР‚РЎСџРІР‚СљРІР‚в„– Р В Р Р‹Р В РЎвЂќР В РЎвЂўР В РЎвЂ”Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р РЋР С“Р РЋРІР‚в„–Р В Р’В»Р В РЎвЂќР РЋРЎвЂњ',
-    'trial_activate': 'РЎР‚РЎСџРЎв„ўР вЂљ Р В РЎвЂ™Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂ”Р В Р’ВµР РЋР вЂљР В РЎвЂР В РЎвЂўР В РўвЂ',
-    'help_devices': 'РЎР‚РЎСџРІР‚СљР’В± Р В РЎв„ўР В Р’В°Р В РЎвЂќ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
-    'guide_ios': 'РЎР‚РЎСџРІР‚СљР’В± iPhone / iPad',
-    'guide_android': 'РЎР‚РЎСџР’В¤РІР‚вЂњ Android',
-    'guide_windows': 'РЎР‚РЎСџР вЂћРЎСџ Windows',
-    'guide_macos': 'РЎР‚РЎСџР РЉР вЂ№ macOS',
-    'pay_stars': 'Р Р†Р’В­РЎвЂ™ Telegram Stars',
-    'pay_yookassa': 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ YooKassa',
-    'pay_crypto': 'РЎР‚РЎСџР вЂћРІвЂћСћ Crypto',
-    'pay_balance': 'РЎР‚РЎСџРІР‚в„ўР’В° Р В Р Р‹ Р В Р’В±Р В Р’В°Р В Р’В»Р В Р’В°Р В Р вЂ¦Р РЋР С“Р В Р’В°',
-    'buy_promo': 'РЎР‚РЎСџР вЂ№РЎСџР С—РЎвЂР РЏ Р В РЎСџР РЋР вЂљР В РЎвЂўР В РЎВР В РЎвЂўР В РЎвЂќР В РЎвЂўР В РўвЂ',
-    'buy_promo_clear': 'Р Р†РЎС™РІР‚вЂњ Р В Р Р‹Р В Р’В±Р РЋР вЂљР В РЎвЂўР РЋР С“Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РЎВР В РЎвЂўР В РЎвЂќР В РЎвЂўР В РўвЂ',
-    'buy_gift': 'РЎР‚РЎСџР вЂ№Р С“ Р В РЎСџР В РЎвЂўР В РўвЂР В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”',
-    'buy_gift_clear': 'Р Р†РЎС™РІР‚вЂњ Р В Р Р‹Р В Р’В±Р РЋР вЂљР В РЎвЂўР РЋР С“Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В Р’В°Р РЋР вЂљР В РЎвЂўР В РЎвЂќ',
-    'pay_open_invoice': 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В РІвЂћвЂ“Р РЋРІР‚С™Р В РЎвЂ Р В РЎвЂќ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’Вµ',
-    'subscription_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂќР В РЎвЂ',
-    'subscription_extend': 'РЎР‚РЎСџРІР‚СћРІР‚в„ў Р В РЎСџР РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂќР РЋРЎвЂњ',
-    'reserve_open': 'РЎР‚РЎСџР Р‰Р РЉ Р В Р’В Р В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂќР В Р’В°Р В Р’В±Р В РЎвЂР В Р вЂ¦Р В Р’ВµР РЋРІР‚С™',
-    'reserve_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р РЋР вЂљР В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’В°',
-    'key_copy': 'РЎР‚РЎСџРІР‚СљРІР‚в„– Р В Р Р‹Р В РЎвЂќР В РЎвЂўР В РЎвЂ”Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
-    'key_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’В°',
-    'key_replace': 'Р Р†РІвЂћСћР’В»Р С—РЎвЂР РЏ Р В РІР‚вЂќР В Р’В°Р В РЎВР В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
-    'key_delete': 'РЎР‚РЎСџРІР‚вЂќРІР‚ВР С—РЎвЂР РЏ Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
+    'help_channel': '?? ?????',
+    'help_support': '?? ?????????',
+    'referral_copy': '?? ??????????? ??????',
+    'trial_activate': '?? ???????????? ??????? ??????',
+    'help_devices': '?? ??? ??????????',
+    'guide_ios': '?? iPhone / iPad',
+    'guide_android': '?? Android',
+    'guide_windows': '?? Windows',
+    'guide_macos': '?? macOS',
+    'pay_stars': '? Telegram Stars',
+    'pay_yookassa': '?? YooKassa',
+    'pay_crypto': '?? Crypto',
+    'pay_balance': '?? ? ???????',
+    'buy_promo': '??? ????????',
+    'buy_promo_clear': '? ?????? ????????',
+    'buy_gift': '?? ???????? ??????',
+    'buy_gift_clear': '? ?????? ???????',
+    'pay_open_invoice': '?? ??????? ? ??????',
+    'subscription_qr': '?? QR ????????',
+    'subscription_extend': '?? ???????? ????????',
+    'reserve_open': '?? ????????? ???????',
+    'reserve_qr': '?? QR ???????',
+    'key_copy': '?? ??????????? ????',
+    'key_qr': '?? QR ?????',
+    'key_replace': '?? ???????? ????',
+    'key_delete': '??? ??????? ????',
 }
 
 
@@ -73,7 +87,7 @@ def build_main_menu(is_admin: bool, show_referral: bool, show_trial: bool, label
         rows.append([KeyboardButton(text=lb['nav_trial'])])
     if is_admin:
         rows.append([KeyboardButton(text=ADMIN_LABEL)])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='Р В РІР‚в„ўР РЋРІР‚в„–Р В Р’В±Р В Р’ВµР РЋР вЂљР В РЎвЂР РЋРІР‚С™Р В Р’Вµ Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»')
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='???????? ??????')
 
 
 def _append_copy_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]]) -> None:
@@ -100,7 +114,7 @@ def _copy_link_label(value: str, limit: int = 44) -> str:
             display = f'{display}?...'
     if len(display) <= limit:
         return display
-    return display[: limit - 1] + 'Р Р†Р вЂљР’В¦'
+    return display[: limit - 1] + '?'
 
 def _append_compact_action_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]], width: int = 2) -> None:
     row: list[InlineKeyboardButton] = []
@@ -145,10 +159,10 @@ def profile_inline_keyboard(subscription_actions: list[tuple[str, str]], is_admi
     if total_pages > 1:
         pagination: list[InlineKeyboardButton] = []
         if page > 1:
-            pagination.append(InlineKeyboardButton(text='Р Р†РІР‚вЂќР вЂљР С—РЎвЂР РЏ', callback_data=f'nav:profile:{page - 1}'))
+            pagination.append(InlineKeyboardButton(text='?', callback_data=f'nav:profile:{page - 1}'))
         pagination.append(InlineKeyboardButton(text=f'{page}/{total_pages}', callback_data='noop'))
         if page < total_pages:
-            pagination.append(InlineKeyboardButton(text='Р Р†РІР‚вЂњР’В¶Р С—РЎвЂР РЏ', callback_data=f'nav:profile:{page + 1}'))
+            pagination.append(InlineKeyboardButton(text='?', callback_data=f'nav:profile:{page + 1}'))
         builder.row(*pagination)
     builder.row(InlineKeyboardButton(text=lb['nav_back'], callback_data='nav:home'))
     return builder.as_markup()
