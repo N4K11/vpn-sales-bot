@@ -21,6 +21,7 @@ from app.db.models import (
     ContentPage,
     FeatureToggle,
     Payment,
+    PromoCode,
     ProvisioningFailureLog,
     Server,
     Subscription,
@@ -54,57 +55,58 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "crypto_pay_token": settings.crypto_pay_token,
     "crypto_pay_use_testnet": "true" if settings.crypto_pay_use_testnet else "false",
     "crypto_pay_assets": settings.crypto_pay_assets_raw,
+    "renewal_discount_percent": "0",
 }
 
 DEFAULT_CONTENT: dict[str, tuple[str, str]] = {
-    'main': ('Экран «Главное меню»', 'Добро пожаловать в MyAir.\n\nВыберите нужный раздел ниже.'),
-    'profile': ('Экран «Мой профиль»', 'Здесь собраны ваши активные подписки, ключи доступа, общая ссылка и баланс.'),
-    'buy': ('Экран «Подключить Air»', 'Выберите формат доступа, а затем удобный способ оплаты.'),
-    'help': ('Экран «Справка»', 'Здесь можно узнать, как работает бот, и перейти в канал или поддержку.'),
-    'referral': ('Экран «Рефералы»', 'Приглашайте друзей и получайте процент с каждой их покупки на внутренний баланс.'),
-    'trial': ('Экран «Пробный доступ»', 'Здесь можно активировать тестовый доступ, если он открыт администратором.'),
-    'devices_menu': ('Экран «Как подключить»', 'Подключение по устройствам\n\nВыберите своё устройство ниже. Внутри будет короткая пошаговая инструкция, как вставить общую ссылку доступа в приложение.\n\nОбщий принцип везде один:\n• откройте доступ в профиле;\n• скопируйте общую ссылку;\n• в приложении найдите Import / Subscription / URL;\n• вставьте ссылку и обновите конфигурацию.\n\nЕсли приложение не принимает общую ссылку, откройте внутри доступа конкретный серверный ключ и импортируйте его отдельно.'),
-    'guide_ios': ('Инструкция: iPhone / iPad', 'iPhone / iPad\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте приложение, которое умеет импорт по URL.\n3. Найдите пункт вроде Import, Subscription, Add from URL.\n4. Вставьте ссылку и подтвердите импорт.\n5. После добавления обновите подписку и подключайтесь к нужному серверу.\n\nЕсли клиент не принимает общую ссылку, откройте конкретный серверный ключ внутри подписки и импортируйте его отдельно.'),
-    'guide_android': ('Инструкция: Android', 'Android\n\n1. Скопируйте общую ссылку из подписки в боте.\n2. Откройте приложение и выберите импорт из буфера, URL или subscription.\n3. Вставьте ссылку и сохраните конфигурацию.\n4. Обновите список серверов внутри приложения.\n5. Выберите нужный сервер и подключайтесь.\n\nЕсли приложение просит формат, обычно нужен URL / Subscription, а не текстовый файл.'),
-    'guide_windows': ('Инструкция: Windows', 'Windows\n\n1. Скопируйте общую ссылку в боте.\n2. В приложении найдите Import profile, Add subscription или Import from URL.\n3. Вставьте ссылку и сохраните профиль.\n4. Запустите обновление подписки, если приложение это поддерживает.\n5. После импорта выберите сервер из списка и подключайтесь.\n\nЕсли подписка не импортируется, можно открыть отдельный серверный ключ и добавить его вручную.'),
-    'guide_macos': ('Инструкция: macOS', '🍎 macOS\n\n1. Скопируйте общую ссылку из подписки.\n2. Откройте клиент и добавьте подписку через URL.\n3. Вставьте ссылку, сохраните профиль и дождитесь загрузки серверов.\n4. При необходимости обновите подписку вручную внутри клиента.\n5. Выберите удобный сервер и подключайтесь.\n\nЕсли клиент работает только с одиночными конфигами, откройте внутри подписки конкретный серверный ключ.'),
-    'subscription_detail': ('Карточка подписки', 'Здесь видны срок действия, общая ссылка подписки, список серверов и все ключи внутри выбранного доступа.'),
-    'key_detail': ('Карточка ключа', 'Здесь можно скопировать ключ, показать QR, заменить нерабочий ключ или удалить уже истёкший элемент.'),
-    'activation_result': ('Экран после активации / оплаты', 'После оплаты, продления или пробного доступа бот показывает итоговую выдачу и быстрый переход к подписке.'),
-    'button_nav_profile': ('Кнопка «Мой профиль» — главный экран', '👤 Мой профиль'),
-    'button_nav_buy': ('Кнопка «Подключить Air» — главный экран и быстрые переходы', 'Подключить Air'),
-    'button_nav_help': ('Кнопка «Справка» — главный экран', '❓ Справка'),
-    'button_nav_referral': ('Кнопка «Рефералы» — главный экран', '🎁 Рефералы'),
-    'button_nav_trial': ('Кнопка «Пробный доступ» — главный экран', '🧪 Пробный доступ'),
-    'button_nav_home': ('Кнопка «Главное меню» — возврат в витрину', '🏠 Главное меню'),
-    'button_nav_back': ('Кнопка «Назад» — возврат на шаг выше', '◀ Назад'),
-    'button_help_channel': ('Кнопка «Канал» — раздел «Справка»', '📣 Канал'),
-    'button_help_support': ('Кнопка «Поддержка» — раздел «Справка»', '🆘 Поддержка'),
-    'button_referral_copy': ('Кнопка «Скопировать ссылку» — раздел «Рефералы»', '📋 Скопировать ссылку'),
-    'button_trial_activate': ('Кнопка «Активировать пробный период» — раздел «Пробный доступ»', '🚀 Активировать пробный период'),
-    'button_help_devices': ('Кнопка «Как подключить» — карточка подписки и результат выдачи', '📱 Как подключить'),
-    'button_guide_ios': ('Кнопка «iPhone / iPad» — выбор устройства', '📱 iPhone / iPad'),
-    'button_guide_android': ('Кнопка «Android» — выбор устройства', '🤖 Android'),
-    'button_guide_windows': ('Кнопка «Windows» — выбор устройства', '🪟 Windows'),
-    'button_guide_macos': ('Кнопка «macOS» — выбор устройства', '🍎 macOS'),
-    'button_pay_stars': ('Кнопка «Telegram Stars» — выбор способа оплаты', '⭐ Telegram Stars'),
-    'button_pay_yookassa': ('Кнопка «YooKassa» — выбор способа оплаты', '💳 YooKassa'),
-    'button_pay_crypto': ('Кнопка «Crypto» — выбор способа оплаты', '🪙 Crypto'),
-    'button_pay_balance': ('Кнопка «С баланса» — выбор способа оплаты', '💰 С баланса'),
-    'button_pay_open_invoice': ('Кнопка «Перейти к оплате» — экран счёта', '💳 Перейти к оплате'),
-    'button_subscription_qr': ('Кнопка «QR подписки» — карточка подписки', '📷 QR подписки'),
-    'button_subscription_extend': ('Кнопка «Продлить подписку» — карточка подписки и ключа', '🕒 Продлить подписку'),
-    'button_reserve_open': ('Кнопка «Резервный кабинет» — подписка и результат выдачи', '🌍 Резервный кабинет'),
-    'button_reserve_qr': ('Кнопка «QR резерва» — карточка подписки', '📷 QR резерва'),
-    'button_key_copy': ('Кнопка «Скопировать ключ» — карточка ключа', '📋 Скопировать ключ'),
-    'button_key_qr': ('Кнопка «QR ключа» — карточка ключа', '📷 QR ключа'),
-    'button_key_replace': ('Кнопка «Заменить ключ» — карточка ключа', '♻️ Заменить ключ'),
-    'button_key_delete': ('Кнопка «Удалить ключ» — карточка ключа', '🗑️ Удалить ключ'),
+    'main': ('Р­РєСЂР°РЅ В«Р“Р»Р°РІРЅРѕРµ РјРµРЅСЋВ»', 'Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ РІ MyAir.\n\nР’С‹Р±РµСЂРёС‚Рµ РЅСѓР¶РЅС‹Р№ СЂР°Р·РґРµР» РЅРёР¶Рµ.'),
+    'profile': ('Р­РєСЂР°РЅ В«РњРѕР№ РїСЂРѕС„РёР»СЊВ»', 'Р—РґРµСЃСЊ СЃРѕР±СЂР°РЅС‹ РІР°С€Рё Р°РєС‚РёРІРЅС‹Рµ РїРѕРґРїРёСЃРєРё, РєР»СЋС‡Рё РґРѕСЃС‚СѓРїР°, РѕР±С‰Р°СЏ СЃСЃС‹Р»РєР° Рё Р±Р°Р»Р°РЅСЃ.'),
+    'buy': ('Р­РєСЂР°РЅ В«РџРѕРґРєР»СЋС‡РёС‚СЊ AirВ»', 'Р’С‹Р±РµСЂРёС‚Рµ С„РѕСЂРјР°С‚ РґРѕСЃС‚СѓРїР°, Р° Р·Р°С‚РµРј СѓРґРѕР±РЅС‹Р№ СЃРїРѕСЃРѕР± РѕРїР»Р°С‚С‹.'),
+    'help': ('Р­РєСЂР°РЅ В«РЎРїСЂР°РІРєР°В»', 'Р—РґРµСЃСЊ РјРѕР¶РЅРѕ СѓР·РЅР°С‚СЊ, РєР°Рє СЂР°Р±РѕС‚Р°РµС‚ Р±РѕС‚, Рё РїРµСЂРµР№С‚Рё РІ РєР°РЅР°Р» РёР»Рё РїРѕРґРґРµСЂР¶РєСѓ.'),
+    'referral': ('Р­РєСЂР°РЅ В«Р РµС„РµСЂР°Р»С‹В»', 'РџСЂРёРіР»Р°С€Р°Р№С‚Рµ РґСЂСѓР·РµР№ Рё РїРѕР»СѓС‡Р°Р№С‚Рµ РїСЂРѕС†РµРЅС‚ СЃ РєР°Р¶РґРѕР№ РёС… РїРѕРєСѓРїРєРё РЅР° РІРЅСѓС‚СЂРµРЅРЅРёР№ Р±Р°Р»Р°РЅСЃ.'),
+    'trial': ('Р­РєСЂР°РЅ В«РџСЂРѕР±РЅС‹Р№ РґРѕСЃС‚СѓРїВ»', 'Р—РґРµСЃСЊ РјРѕР¶РЅРѕ Р°РєС‚РёРІРёСЂРѕРІР°С‚СЊ С‚РµСЃС‚РѕРІС‹Р№ РґРѕСЃС‚СѓРї, РµСЃР»Рё РѕРЅ РѕС‚РєСЂС‹С‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.'),
+    'devices_menu': ('Р­РєСЂР°РЅ В«РљР°Рє РїРѕРґРєР»СЋС‡РёС‚СЊВ»', 'РџРѕРґРєР»СЋС‡РµРЅРёРµ РїРѕ СѓСЃС‚СЂРѕР№СЃС‚РІР°Рј\n\nР’С‹Р±РµСЂРёС‚Рµ СЃРІРѕС‘ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ РЅРёР¶Рµ. Р’РЅСѓС‚СЂРё Р±СѓРґРµС‚ РєРѕСЂРѕС‚РєР°СЏ РїРѕС€Р°РіРѕРІР°СЏ РёРЅСЃС‚СЂСѓРєС†РёСЏ, РєР°Рє РІСЃС‚Р°РІРёС‚СЊ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ РґРѕСЃС‚СѓРїР° РІ РїСЂРёР»РѕР¶РµРЅРёРµ.\n\nРћР±С‰РёР№ РїСЂРёРЅС†РёРї РІРµР·РґРµ РѕРґРёРЅ:\nвЂў РѕС‚РєСЂРѕР№С‚Рµ РґРѕСЃС‚СѓРї РІ РїСЂРѕС„РёР»Рµ;\nвЂў СЃРєРѕРїРёСЂСѓР№С‚Рµ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ;\nвЂў РІ РїСЂРёР»РѕР¶РµРЅРёРё РЅР°Р№РґРёС‚Рµ Import / Subscription / URL;\nвЂў РІСЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ Рё РѕР±РЅРѕРІРёС‚Рµ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ.\n\nР•СЃР»Рё РїСЂРёР»РѕР¶РµРЅРёРµ РЅРµ РїСЂРёРЅРёРјР°РµС‚ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ, РѕС‚РєСЂРѕР№С‚Рµ РІРЅСѓС‚СЂРё РґРѕСЃС‚СѓРїР° РєРѕРЅРєСЂРµС‚РЅС‹Р№ СЃРµСЂРІРµСЂРЅС‹Р№ РєР»СЋС‡ Рё РёРјРїРѕСЂС‚РёСЂСѓР№С‚Рµ РµРіРѕ РѕС‚РґРµР»СЊРЅРѕ.'),
+    'guide_ios': ('РРЅСЃС‚СЂСѓРєС†РёСЏ: iPhone / iPad', 'iPhone / iPad\n\n1. РЎРєРѕРїРёСЂСѓР№С‚Рµ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ РёР· РїРѕРґРїРёСЃРєРё РІ Р±РѕС‚Рµ.\n2. РћС‚РєСЂРѕР№С‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ, РєРѕС‚РѕСЂРѕРµ СѓРјРµРµС‚ РёРјРїРѕСЂС‚ РїРѕ URL.\n3. РќР°Р№РґРёС‚Рµ РїСѓРЅРєС‚ РІСЂРѕРґРµ Import, Subscription, Add from URL.\n4. Р’СЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ РёРјРїРѕСЂС‚.\n5. РџРѕСЃР»Рµ РґРѕР±Р°РІР»РµРЅРёСЏ РѕР±РЅРѕРІРёС‚Рµ РїРѕРґРїРёСЃРєСѓ Рё РїРѕРґРєР»СЋС‡Р°Р№С‚РµСЃСЊ Рє РЅСѓР¶РЅРѕРјСѓ СЃРµСЂРІРµСЂСѓ.\n\nР•СЃР»Рё РєР»РёРµРЅС‚ РЅРµ РїСЂРёРЅРёРјР°РµС‚ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ, РѕС‚РєСЂРѕР№С‚Рµ РєРѕРЅРєСЂРµС‚РЅС‹Р№ СЃРµСЂРІРµСЂРЅС‹Р№ РєР»СЋС‡ РІРЅСѓС‚СЂРё РїРѕРґРїРёСЃРєРё Рё РёРјРїРѕСЂС‚РёСЂСѓР№С‚Рµ РµРіРѕ РѕС‚РґРµР»СЊРЅРѕ.'),
+    'guide_android': ('РРЅСЃС‚СЂСѓРєС†РёСЏ: Android', 'Android\n\n1. РЎРєРѕРїРёСЂСѓР№С‚Рµ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ РёР· РїРѕРґРїРёСЃРєРё РІ Р±РѕС‚Рµ.\n2. РћС‚РєСЂРѕР№С‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ Рё РІС‹Р±РµСЂРёС‚Рµ РёРјРїРѕСЂС‚ РёР· Р±СѓС„РµСЂР°, URL РёР»Рё subscription.\n3. Р’СЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ.\n4. РћР±РЅРѕРІРёС‚Рµ СЃРїРёСЃРѕРє СЃРµСЂРІРµСЂРѕРІ РІРЅСѓС‚СЂРё РїСЂРёР»РѕР¶РµРЅРёСЏ.\n5. Р’С‹Р±РµСЂРёС‚Рµ РЅСѓР¶РЅС‹Р№ СЃРµСЂРІРµСЂ Рё РїРѕРґРєР»СЋС‡Р°Р№С‚РµСЃСЊ.\n\nР•СЃР»Рё РїСЂРёР»РѕР¶РµРЅРёРµ РїСЂРѕСЃРёС‚ С„РѕСЂРјР°С‚, РѕР±С‹С‡РЅРѕ РЅСѓР¶РµРЅ URL / Subscription, Р° РЅРµ С‚РµРєСЃС‚РѕРІС‹Р№ С„Р°Р№Р».'),
+    'guide_windows': ('РРЅСЃС‚СЂСѓРєС†РёСЏ: Windows', 'Windows\n\n1. РЎРєРѕРїРёСЂСѓР№С‚Рµ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ РІ Р±РѕС‚Рµ.\n2. Р’ РїСЂРёР»РѕР¶РµРЅРёРё РЅР°Р№РґРёС‚Рµ Import profile, Add subscription РёР»Рё Import from URL.\n3. Р’СЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РїСЂРѕС„РёР»СЊ.\n4. Р—Р°РїСѓСЃС‚РёС‚Рµ РѕР±РЅРѕРІР»РµРЅРёРµ РїРѕРґРїРёСЃРєРё, РµСЃР»Рё РїСЂРёР»РѕР¶РµРЅРёРµ СЌС‚Рѕ РїРѕРґРґРµСЂР¶РёРІР°РµС‚.\n5. РџРѕСЃР»Рµ РёРјРїРѕСЂС‚Р° РІС‹Р±РµСЂРёС‚Рµ СЃРµСЂРІРµСЂ РёР· СЃРїРёСЃРєР° Рё РїРѕРґРєР»СЋС‡Р°Р№С‚РµСЃСЊ.\n\nР•СЃР»Рё РїРѕРґРїРёСЃРєР° РЅРµ РёРјРїРѕСЂС‚РёСЂСѓРµС‚СЃСЏ, РјРѕР¶РЅРѕ РѕС‚РєСЂС‹С‚СЊ РѕС‚РґРµР»СЊРЅС‹Р№ СЃРµСЂРІРµСЂРЅС‹Р№ РєР»СЋС‡ Рё РґРѕР±Р°РІРёС‚СЊ РµРіРѕ РІСЂСѓС‡РЅСѓСЋ.'),
+    'guide_macos': ('РРЅСЃС‚СЂСѓРєС†РёСЏ: macOS', 'рџЌЋ macOS\n\n1. РЎРєРѕРїРёСЂСѓР№С‚Рµ РѕР±С‰СѓСЋ СЃСЃС‹Р»РєСѓ РёР· РїРѕРґРїРёСЃРєРё.\n2. РћС‚РєСЂРѕР№С‚Рµ РєР»РёРµРЅС‚ Рё РґРѕР±Р°РІСЊС‚Рµ РїРѕРґРїРёСЃРєСѓ С‡РµСЂРµР· URL.\n3. Р’СЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ, СЃРѕС…СЂР°РЅРёС‚Рµ РїСЂРѕС„РёР»СЊ Рё РґРѕР¶РґРёС‚РµСЃСЊ Р·Р°РіСЂСѓР·РєРё СЃРµСЂРІРµСЂРѕРІ.\n4. РџСЂРё РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё РѕР±РЅРѕРІРёС‚Рµ РїРѕРґРїРёСЃРєСѓ РІСЂСѓС‡РЅСѓСЋ РІРЅСѓС‚СЂРё РєР»РёРµРЅС‚Р°.\n5. Р’С‹Р±РµСЂРёС‚Рµ СѓРґРѕР±РЅС‹Р№ СЃРµСЂРІРµСЂ Рё РїРѕРґРєР»СЋС‡Р°Р№С‚РµСЃСЊ.\n\nР•СЃР»Рё РєР»РёРµРЅС‚ СЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ СЃ РѕРґРёРЅРѕС‡РЅС‹РјРё РєРѕРЅС„РёРіР°РјРё, РѕС‚РєСЂРѕР№С‚Рµ РІРЅСѓС‚СЂРё РїРѕРґРїРёСЃРєРё РєРѕРЅРєСЂРµС‚РЅС‹Р№ СЃРµСЂРІРµСЂРЅС‹Р№ РєР»СЋС‡.'),
+    'subscription_detail': ('РљР°СЂС‚РѕС‡РєР° РїРѕРґРїРёСЃРєРё', 'Р—РґРµСЃСЊ РІРёРґРЅС‹ СЃСЂРѕРє РґРµР№СЃС‚РІРёСЏ, РѕР±С‰Р°СЏ СЃСЃС‹Р»РєР° РїРѕРґРїРёСЃРєРё, СЃРїРёСЃРѕРє СЃРµСЂРІРµСЂРѕРІ Рё РІСЃРµ РєР»СЋС‡Рё РІРЅСѓС‚СЂРё РІС‹Р±СЂР°РЅРЅРѕРіРѕ РґРѕСЃС‚СѓРїР°.'),
+    'key_detail': ('РљР°СЂС‚РѕС‡РєР° РєР»СЋС‡Р°', 'Р—РґРµСЃСЊ РјРѕР¶РЅРѕ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ РєР»СЋС‡, РїРѕРєР°Р·Р°С‚СЊ QR, Р·Р°РјРµРЅРёС‚СЊ РЅРµСЂР°Р±РѕС‡РёР№ РєР»СЋС‡ РёР»Рё СѓРґР°Р»РёС‚СЊ СѓР¶Рµ РёСЃС‚С‘РєС€РёР№ СЌР»РµРјРµРЅС‚.'),
+    'activation_result': ('Р­РєСЂР°РЅ РїРѕСЃР»Рµ Р°РєС‚РёРІР°С†РёРё / РѕРїР»Р°С‚С‹', 'РџРѕСЃР»Рµ РѕРїР»Р°С‚С‹, РїСЂРѕРґР»РµРЅРёСЏ РёР»Рё РїСЂРѕР±РЅРѕРіРѕ РґРѕСЃС‚СѓРїР° Р±РѕС‚ РїРѕРєР°Р·С‹РІР°РµС‚ РёС‚РѕРіРѕРІСѓСЋ РІС‹РґР°С‡Сѓ Рё Р±С‹СЃС‚СЂС‹Р№ РїРµСЂРµС…РѕРґ Рє РїРѕРґРїРёСЃРєРµ.'),
+    'button_nav_profile': ('РљРЅРѕРїРєР° В«РњРѕР№ РїСЂРѕС„РёР»СЊВ» вЂ” РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ', 'рџ‘¤ РњРѕР№ РїСЂРѕС„РёР»СЊ'),
+    'button_nav_buy': ('РљРЅРѕРїРєР° В«РџРѕРґРєР»СЋС‡РёС‚СЊ AirВ» вЂ” РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ Рё Р±С‹СЃС‚СЂС‹Рµ РїРµСЂРµС…РѕРґС‹', 'РџРѕРґРєР»СЋС‡РёС‚СЊ Air'),
+    'button_nav_help': ('РљРЅРѕРїРєР° В«РЎРїСЂР°РІРєР°В» вЂ” РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ', 'вќ“ РЎРїСЂР°РІРєР°'),
+    'button_nav_referral': ('РљРЅРѕРїРєР° В«Р РµС„РµСЂР°Р»С‹В» вЂ” РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ', 'рџЋЃ Р РµС„РµСЂР°Р»С‹'),
+    'button_nav_trial': ('РљРЅРѕРїРєР° В«РџСЂРѕР±РЅС‹Р№ РґРѕСЃС‚СѓРїВ» вЂ” РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ', 'рџ§Є РџСЂРѕР±РЅС‹Р№ РґРѕСЃС‚СѓРї'),
+    'button_nav_home': ('РљРЅРѕРїРєР° В«Р“Р»Р°РІРЅРѕРµ РјРµРЅСЋВ» вЂ” РІРѕР·РІСЂР°С‚ РІ РІРёС‚СЂРёРЅСѓ', 'рџЏ  Р“Р»Р°РІРЅРѕРµ РјРµРЅСЋ'),
+    'button_nav_back': ('РљРЅРѕРїРєР° В«РќР°Р·Р°РґВ» вЂ” РІРѕР·РІСЂР°С‚ РЅР° С€Р°Рі РІС‹С€Рµ', 'в—Ђ РќР°Р·Р°Рґ'),
+    'button_help_channel': ('РљРЅРѕРїРєР° В«РљР°РЅР°Р»В» вЂ” СЂР°Р·РґРµР» В«РЎРїСЂР°РІРєР°В»', 'рџ“Ј РљР°РЅР°Р»'),
+    'button_help_support': ('РљРЅРѕРїРєР° В«РџРѕРґРґРµСЂР¶РєР°В» вЂ” СЂР°Р·РґРµР» В«РЎРїСЂР°РІРєР°В»', 'рџ† РџРѕРґРґРµСЂР¶РєР°'),
+    'button_referral_copy': ('РљРЅРѕРїРєР° В«РЎРєРѕРїРёСЂРѕРІР°С‚СЊ СЃСЃС‹Р»РєСѓВ» вЂ” СЂР°Р·РґРµР» В«Р РµС„РµСЂР°Р»С‹В»', 'рџ“‹ РЎРєРѕРїРёСЂРѕРІР°С‚СЊ СЃСЃС‹Р»РєСѓ'),
+    'button_trial_activate': ('РљРЅРѕРїРєР° В«РђРєС‚РёРІРёСЂРѕРІР°С‚СЊ РїСЂРѕР±РЅС‹Р№ РїРµСЂРёРѕРґВ» вЂ” СЂР°Р·РґРµР» В«РџСЂРѕР±РЅС‹Р№ РґРѕСЃС‚СѓРїВ»', 'рџљЂ РђРєС‚РёРІРёСЂРѕРІР°С‚СЊ РїСЂРѕР±РЅС‹Р№ РїРµСЂРёРѕРґ'),
+    'button_help_devices': ('РљРЅРѕРїРєР° В«РљР°Рє РїРѕРґРєР»СЋС‡РёС‚СЊВ» вЂ” РєР°СЂС‚РѕС‡РєР° РїРѕРґРїРёСЃРєРё Рё СЂРµР·СѓР»СЊС‚Р°С‚ РІС‹РґР°С‡Рё', 'рџ“± РљР°Рє РїРѕРґРєР»СЋС‡РёС‚СЊ'),
+    'button_guide_ios': ('РљРЅРѕРїРєР° В«iPhone / iPadВ» вЂ” РІС‹Р±РѕСЂ СѓСЃС‚СЂРѕР№СЃС‚РІР°', 'рџ“± iPhone / iPad'),
+    'button_guide_android': ('РљРЅРѕРїРєР° В«AndroidВ» вЂ” РІС‹Р±РѕСЂ СѓСЃС‚СЂРѕР№СЃС‚РІР°', 'рџ¤– Android'),
+    'button_guide_windows': ('РљРЅРѕРїРєР° В«WindowsВ» вЂ” РІС‹Р±РѕСЂ СѓСЃС‚СЂРѕР№СЃС‚РІР°', 'рџЄџ Windows'),
+    'button_guide_macos': ('РљРЅРѕРїРєР° В«macOSВ» вЂ” РІС‹Р±РѕСЂ СѓСЃС‚СЂРѕР№СЃС‚РІР°', 'рџЌЋ macOS'),
+    'button_pay_stars': ('РљРЅРѕРїРєР° В«Telegram StarsВ» вЂ” РІС‹Р±РѕСЂ СЃРїРѕСЃРѕР±Р° РѕРїР»Р°С‚С‹', 'в­ђ Telegram Stars'),
+    'button_pay_yookassa': ('РљРЅРѕРїРєР° В«YooKassaВ» вЂ” РІС‹Р±РѕСЂ СЃРїРѕСЃРѕР±Р° РѕРїР»Р°С‚С‹', 'рџ’і YooKassa'),
+    'button_pay_crypto': ('РљРЅРѕРїРєР° В«CryptoВ» вЂ” РІС‹Р±РѕСЂ СЃРїРѕСЃРѕР±Р° РѕРїР»Р°С‚С‹', 'рџЄ™ Crypto'),
+    'button_pay_balance': ('РљРЅРѕРїРєР° В«РЎ Р±Р°Р»Р°РЅСЃР°В» вЂ” РІС‹Р±РѕСЂ СЃРїРѕСЃРѕР±Р° РѕРїР»Р°С‚С‹', 'рџ’° РЎ Р±Р°Р»Р°РЅСЃР°'),
+    'button_pay_open_invoice': ('РљРЅРѕРїРєР° В«РџРµСЂРµР№С‚Рё Рє РѕРїР»Р°С‚РµВ» вЂ” СЌРєСЂР°РЅ СЃС‡С‘С‚Р°', 'рџ’і РџРµСЂРµР№С‚Рё Рє РѕРїР»Р°С‚Рµ'),
+    'button_subscription_qr': ('РљРЅРѕРїРєР° В«QR РїРѕРґРїРёСЃРєРёВ» вЂ” РєР°СЂС‚РѕС‡РєР° РїРѕРґРїРёСЃРєРё', 'рџ“· QR РїРѕРґРїРёСЃРєРё'),
+    'button_subscription_extend': ('РљРЅРѕРїРєР° В«РџСЂРѕРґР»РёС‚СЊ РїРѕРґРїРёСЃРєСѓВ» вЂ” РєР°СЂС‚РѕС‡РєР° РїРѕРґРїРёСЃРєРё Рё РєР»СЋС‡Р°', 'рџ•’ РџСЂРѕРґР»РёС‚СЊ РїРѕРґРїРёСЃРєСѓ'),
+    'button_reserve_open': ('РљРЅРѕРїРєР° В«Р РµР·РµСЂРІРЅС‹Р№ РєР°Р±РёРЅРµС‚В» вЂ” РїРѕРґРїРёСЃРєР° Рё СЂРµР·СѓР»СЊС‚Р°С‚ РІС‹РґР°С‡Рё', 'рџЊЌ Р РµР·РµСЂРІРЅС‹Р№ РєР°Р±РёРЅРµС‚'),
+    'button_reserve_qr': ('РљРЅРѕРїРєР° В«QR СЂРµР·РµСЂРІР°В» вЂ” РєР°СЂС‚РѕС‡РєР° РїРѕРґРїРёСЃРєРё', 'рџ“· QR СЂРµР·РµСЂРІР°'),
+    'button_key_copy': ('РљРЅРѕРїРєР° В«РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РєР»СЋС‡В» вЂ” РєР°СЂС‚РѕС‡РєР° РєР»СЋС‡Р°', 'рџ“‹ РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РєР»СЋС‡'),
+    'button_key_qr': ('РљРЅРѕРїРєР° В«QR РєР»СЋС‡Р°В» вЂ” РєР°СЂС‚РѕС‡РєР° РєР»СЋС‡Р°', 'рџ“· QR РєР»СЋС‡Р°'),
+    'button_key_replace': ('РљРЅРѕРїРєР° В«Р—Р°РјРµРЅРёС‚СЊ РєР»СЋС‡В» вЂ” РєР°СЂС‚РѕС‡РєР° РєР»СЋС‡Р°', 'в™»пёЏ Р—Р°РјРµРЅРёС‚СЊ РєР»СЋС‡'),
+    'button_key_delete': ('РљРЅРѕРїРєР° В«РЈРґР°Р»РёС‚СЊ РєР»СЋС‡В» вЂ” РєР°СЂС‚РѕС‡РєР° РєР»СЋС‡Р°', 'рџ—‘пёЏ РЈРґР°Р»РёС‚СЊ РєР»СЋС‡'),
 }
 
 LEGACY_BRANDING_REFRESH_KEYS: set[str] = {'main', 'devices_menu', 'guide_ios', 'guide_android', 'guide_windows', 'button_nav_buy'}
 LEGACY_BRANDING_EXACT_BODIES: dict[str, str] = {
-    'buy': 'Выберите тариф, а затем удобный способ оплаты.',
+    'buy': 'Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂРёС„, Р° Р·Р°С‚РµРј СѓРґРѕР±РЅС‹Р№ СЃРїРѕСЃРѕР± РѕРїР»Р°С‚С‹.',
 }
 
 USER_TEXT_CONTENT_KEYS: list[str] = ['main', 'profile', 'buy', 'help', 'referral', 'trial', 'devices_menu', 'guide_ios', 'guide_android', 'guide_windows', 'guide_macos', 'subscription_detail', 'key_detail', 'activation_result']
@@ -115,9 +117,9 @@ BUTTON_LABEL_DEFAULTS: dict[str, str] = {label_key: DEFAULT_CONTENT[page_key][1]
 
 
 DEFAULT_TARIFFS: list[dict[str, Any]] = [
-    {"name": "Старт", "days": 30, "price_rub": Decimal("299.00"), "price_stars": 450, "description": "1 месяц доступа"},
-    {"name": "Оптимум", "days": 90, "price_rub": Decimal("799.00"), "price_stars": 1190, "description": "3 месяца доступа"},
-    {"name": "Год", "days": 365, "price_rub": Decimal("2490.00"), "price_stars": 3690, "description": "12 месяцев доступа"},
+    {"name": "РЎС‚Р°СЂС‚", "days": 30, "price_rub": Decimal("299.00"), "price_stars": 450, "description": "1 РјРµСЃСЏС† РґРѕСЃС‚СѓРїР°"},
+    {"name": "РћРїС‚РёРјСѓРј", "days": 90, "price_rub": Decimal("799.00"), "price_stars": 1190, "description": "3 РјРµСЃСЏС†Р° РґРѕСЃС‚СѓРїР°"},
+    {"name": "Р“РѕРґ", "days": 365, "price_rub": Decimal("2490.00"), "price_stars": 3690, "description": "12 РјРµСЃСЏС†РµРІ РґРѕСЃС‚СѓРїР°"},
 ]
 
 
@@ -149,6 +151,7 @@ class Store:
                         page.body = body
                     elif key in LEGACY_BRANDING_EXACT_BODIES and current_body == LEGACY_BRANDING_EXACT_BODIES[key]:
                         page.body = body
+
             tariffs_count = await session.scalar(select(func.count(Tariff.id)))
             if not tariffs_count:
                 for tariff in DEFAULT_TARIFFS:
@@ -156,6 +159,12 @@ class Store:
 
             await session.commit()
 
+    async def get_user_by_username(self, username: str) -> User | None:
+        normalized = (username or '').strip().lstrip('@').lower()
+        if not normalized:
+            return None
+        async with self.session_factory() as session:
+            return await session.scalar(select(User).where(func.lower(User.username) == normalized))
     async def get_or_create_user(self, tg_user: TelegramUser, referral_code: str | None = None) -> User:
         async with self.session_factory() as session:
             result = await session.execute(select(User).where(User.telegram_id == tg_user.id))
@@ -289,17 +298,17 @@ class Store:
         async with self.session_factory() as session:
             tariff = await session.get(Tariff, tariff_id)
             if not tariff:
-                return False, 'Тариф не найден.'
+                return False, 'РўР°СЂРёС„ РЅРµ РЅР°Р№РґРµРЅ.'
 
             subscriptions_count = await session.scalar(select(func.count(Subscription.id)).where(Subscription.tariff_id == tariff_id)) or 0
             payments_count = await session.scalar(select(func.count(Payment.id)).where(Payment.tariff_id == tariff_id)) or 0
             if subscriptions_count or payments_count:
-                return False, 'Тариф уже использовался в оплатах или подписках. Его можно отредактировать или скрыть, но не удалить.'
+                return False, 'РўР°СЂРёС„ СѓР¶Рµ РёСЃРїРѕР»СЊР·РѕРІР°Р»СЃСЏ РІ РѕРїР»Р°С‚Р°С… РёР»Рё РїРѕРґРїРёСЃРєР°С…. Р•РіРѕ РјРѕР¶РЅРѕ РѕС‚СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РёР»Рё СЃРєСЂС‹С‚СЊ, РЅРѕ РЅРµ СѓРґР°Р»РёС‚СЊ.'
 
             tariff_name = tariff.name
             await session.delete(tariff)
             await session.commit()
-            return True, f'Тариф {tariff_name} удалён.'
+            return True, f'РўР°СЂРёС„ {tariff_name} СѓРґР°Р»С‘РЅ.'
 
     async def toggle_tariff(self, tariff_id: int) -> Tariff | None:
         async with self.session_factory() as session:
@@ -310,6 +319,87 @@ class Store:
             await session.commit()
             await session.refresh(tariff)
             return tariff
+
+    async def list_promocodes(self) -> list[PromoCode]:
+        async with self.session_factory() as session:
+            result = await session.scalars(select(PromoCode).options(selectinload(PromoCode.target_user)).order_by(PromoCode.created_at.desc()))
+            return list(result)
+
+    async def get_promocode(self, promo_id: int) -> PromoCode | None:
+        async with self.session_factory() as session:
+            return await session.scalar(select(PromoCode).options(selectinload(PromoCode.target_user)).where(PromoCode.id == promo_id))
+
+    async def get_promocode_by_code(self, code: str) -> PromoCode | None:
+        normalized = (code or "").strip().upper()
+        if not normalized:
+            return None
+        async with self.session_factory() as session:
+            return await session.scalar(select(PromoCode).options(selectinload(PromoCode.target_user)).where(PromoCode.code == normalized))
+
+    async def create_promocode(
+        self,
+        *,
+        code: str,
+        title: str,
+        description: str,
+        discount_percent: int,
+        bonus_days: int,
+        max_uses: int,
+        starts_at: datetime | None,
+        ends_at: datetime | None,
+        first_purchase_only: bool,
+        extend_only: bool,
+        target_user_id: int | None,
+    ) -> PromoCode:
+        async with self.session_factory() as session:
+            promo = PromoCode(
+                code=(code or "").strip().upper(),
+                title=(title or "").strip(),
+                description=(description or "").strip(),
+                discount_percent=max(discount_percent, 0),
+                bonus_days=max(bonus_days, 0),
+                max_uses=max(max_uses, 0),
+                starts_at=starts_at,
+                ends_at=ends_at,
+                first_purchase_only=first_purchase_only,
+                extend_only=extend_only,
+                target_user_id=target_user_id,
+            )
+            session.add(promo)
+            await session.commit()
+            await session.refresh(promo)
+            return promo
+
+    async def toggle_promocode(self, promo_id: int) -> PromoCode | None:
+        async with self.session_factory() as session:
+            promo = await session.get(PromoCode, promo_id)
+            if not promo:
+                return None
+            promo.is_active = not promo.is_active
+            await session.commit()
+            await session.refresh(promo)
+            return promo
+
+    async def delete_promocode(self, promo_id: int) -> bool:
+        async with self.session_factory() as session:
+            promo = await session.get(PromoCode, promo_id)
+            if not promo:
+                return False
+            await session.delete(promo)
+            await session.commit()
+            return True
+
+    async def count_paid_payments_for_user(self, user_id: int) -> int:
+        async with self.session_factory() as session:
+            return int(await session.scalar(select(func.count(Payment.id)).where(Payment.user_id == user_id, Payment.status == "paid")) or 0)
+
+    async def increment_promocode_usage(self, promo_id: int) -> None:
+        async with self.session_factory() as session:
+            promo = await session.get(PromoCode, promo_id)
+            if not promo:
+                return
+            promo.used_count = int(promo.used_count or 0) + 1
+            await session.commit()
 
     async def list_servers(self) -> list[Server]:
         async with self.session_factory() as session:
@@ -358,17 +448,17 @@ class Store:
         async with self.session_factory() as session:
             server = await session.get(Server, server_id)
             if not server:
-                return False, "Сервер не найден."
+                return False, "РЎРµСЂРІРµСЂ РЅРµ РЅР°Р№РґРµРЅ."
 
             subscriptions_count = await session.scalar(select(func.count(Subscription.id)).where(Subscription.server_id == server_id)) or 0
             keys_count = await session.scalar(select(func.count(VpnKey.id)).where(VpnKey.server_id == server_id)) or 0
             if subscriptions_count or keys_count:
-                return False, "Нельзя удалить сервер, к нему уже привязаны подписки или ключи. Сначала скройте его."
+                return False, "РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ СЃРµСЂРІРµСЂ, Рє РЅРµРјСѓ СѓР¶Рµ РїСЂРёРІСЏР·Р°РЅС‹ РїРѕРґРїРёСЃРєРё РёР»Рё РєР»СЋС‡Рё. РЎРЅР°С‡Р°Р»Р° СЃРєСЂРѕР№С‚Рµ РµРіРѕ."
 
             server_name = server.name
             await session.delete(server)
             await session.commit()
-            return True, f"Сервер {server_name} удалён."
+            return True, f"РЎРµСЂРІРµСЂ {server_name} СѓРґР°Р»С‘РЅ."
 
 
     async def get_server_agent_config(self, server_id: int) -> dict[str, str]:
@@ -764,9 +854,9 @@ class Store:
         async with self.session_factory() as session:
             user = await session.get(User, user_id)
             if not user:
-                return None, 'Пользователь не найден.'
+                return None, 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ.'
             if (user.balance or Decimal('0')) < amount:
-                return None, 'Недостаточно средств на балансе.'
+                return None, 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СЃСЂРµРґСЃС‚РІ РЅР° Р±Р°Р»Р°РЅСЃРµ.'
 
             payment = Payment(
                 user_id=user_id,
@@ -849,6 +939,34 @@ class Store:
                 )
             )
             return list(result)
+
+    async def list_abandoned_external_payments(self, *, older_than_minutes: int = 30, limit: int = 50) -> list[Payment]:
+        cutoff = datetime.utcnow() - timedelta(minutes=max(older_than_minutes, 1))
+        async with self.session_factory() as session:
+            result = await session.scalars(
+                select(Payment)
+                .options(selectinload(Payment.tariff), selectinload(Payment.user))
+                .where(
+                    Payment.status == "pending",
+                    Payment.method.in_(["yookassa", "crypto"]),
+                    Payment.provider_url != "",
+                    Payment.reminder_sent_at.is_(None),
+                    Payment.created_at <= cutoff,
+                )
+                .order_by(Payment.created_at.asc())
+                .limit(limit)
+            )
+            return list(result)
+
+    async def mark_payment_reminder_sent(self, payment_id: int) -> bool:
+        async with self.session_factory() as session:
+            result = await session.execute(
+                update(Payment)
+                .where(Payment.id == payment_id, Payment.reminder_sent_at.is_(None))
+                .values(reminder_sent_at=datetime.utcnow())
+            )
+            await session.commit()
+            return bool(result.rowcount)
 
     async def mark_payment_paid(self, payment_id: int) -> Payment | None:
         async with self.session_factory() as session:
@@ -1124,7 +1242,7 @@ class Store:
                     payment_id=payment_id,
                     kind="referral_bonus",
                     amount=bonus,
-                    description=f"Бонус за покупку реферала #{buyer.telegram_id}",
+                    description=f"Р‘РѕРЅСѓСЃ Р·Р° РїРѕРєСѓРїРєСѓ СЂРµС„РµСЂР°Р»Р° #{buyer.telegram_id}",
                     balance_after=referrer.balance,
                 )
             )
@@ -1324,7 +1442,7 @@ class Store:
                 cost_per_user_rub = amount_rub
             server_cost_rows.append({
                 'server_id': item.get('server_id'),
-                'server_name': str(item.get('server_name') or 'Сервер'),
+                'server_name': str(item.get('server_name') or 'РЎРµСЂРІРµСЂ'),
                 'amount_rub': amount_rub,
                 'next_due': next_due,
                 'period_days': int(item.get('period_days', 30)),
@@ -1554,7 +1672,7 @@ class Store:
             session.add(
                 ProvisioningFailureLog(
                     stage=(stage or '').strip() or 'unknown',
-                    error=(error or '').strip() or 'Неизвестная ошибка',
+                    error=(error or '').strip() or 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°',
                     server_id=server_id,
                     server_name=(server_name or '').strip(),
                     subscription_id=subscription_id,
@@ -1658,7 +1776,7 @@ class Store:
         return [user.telegram_id for user in users]
 
     async def record_failed_server_check(self, server_id: int, error: str) -> None:
-        error_text = (error or "Неизвестная ошибка").strip() or "Неизвестная ошибка"
+        error_text = (error or "РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°").strip() or "РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°"
         logger.warning("Server check failed for %s: %s", server_id, error_text)
         server = await self.get_server(server_id)
         await self.update_server_health(server_id, "offline", 0, 0, error_text)

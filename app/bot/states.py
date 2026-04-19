@@ -1,7 +1,11 @@
-﻿from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import State, StatesGroup
 
 
 class TariffCreateState(StatesGroup):
+    waiting_payload = State()
+
+
+class TariffEditState(StatesGroup):
     waiting_payload = State()
 
 
@@ -25,16 +29,12 @@ class BalanceGrantState(StatesGroup):
     waiting_amount = State()
 
 
-class BroadcastState(StatesGroup):
-    waiting_text = State()
-
-
 class ManualSubscriptionState(StatesGroup):
     waiting_days = State()
 
 
-class TariffEditState(StatesGroup):
-    waiting_payload = State()
+class BroadcastState(StatesGroup):
+    waiting_text = State()
 
 
 class PaymentConfigState(StatesGroup):
@@ -51,3 +51,19 @@ class ServerBillingState(StatesGroup):
 
 class ServerCommandState(StatesGroup):
     waiting_command = State()
+
+
+class PromoCodeState(StatesGroup):
+    waiting_code = State()
+
+
+class GiftRecipientState(StatesGroup):
+    waiting_recipient = State()
+
+
+class PromoCreateState(StatesGroup):
+    waiting_payload = State()
+
+
+class RenewalDiscountState(StatesGroup):
+    waiting_percent = State()

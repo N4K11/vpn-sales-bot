@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -11,6 +11,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.controller import BotController
 from app.bot.keyboards import access_result_keyboard, update_notice_keyboard
@@ -25,6 +27,7 @@ from app.services.store import Store
 from app.services.subscription_links import build_reserve_access_url, build_subscription_url, subscription_server_names
 from app.services.subscription_server import create_subscription_web_app
 from app.services.updater import UpdateService
+from app.utils import format_money
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,8 @@ SERVER_ALERT_INTERVAL_SECONDS = 300
 SERVER_BILLING_REMINDER_INTERVAL_SECONDS = 21600
 CLEANUP_INTERVAL_SECONDS = 21600
 UPDATE_CHECK_INTERVAL_SECONDS = 3600
+ABANDONED_PAYMENT_REMINDER_INTERVAL_SECONDS = 600
+ABANDONED_PAYMENT_OLDER_THAN_MINUTES = 30
 CPU_ALERT_THRESHOLD = 85
 RAM_ALERT_THRESHOLD = 85
 AGENT_MEMORY_ALERT_THRESHOLD = 85
@@ -44,6 +49,18 @@ PROVISIONING_ALERT_PER_SERVER_THRESHOLD = 3
 def build_subscription_action_rows(subscription) -> list[tuple[str, str]]:
     return [('🌐 Открыть доступ', f'sub:show:{subscription.id}:profile')]
 
+
+def display_user_name(user) -> str:
+    if not user:
+        return 'пользователь'
+    username = (getattr(user, 'username', '') or '').strip()
+    if username:
+        return f'@{username}'
+    full_name = (getattr(user, 'full_name', '') or '').strip()
+    if full_name:
+        return full_name
+    telegram_id = getattr(user, 'telegram_id', None)
+    return str(telegram_id) if telegram_id is not None else 'пользователь'
 
 def render_subscription_link_lines(subscription) -> list[str]:
     url = build_subscription_url(subscription)
@@ -85,6 +102,62 @@ def render_payment_activation_message(subscription, vpn_keys: list, extended: bo
         lines.append(reserve_url)
     return '\n'.join(lines)
 
+
+def render_gift_purchase_activation_message(subscription) -> str:
+    recipient = getattr(subscription, 'user', None)
+    lines = [
+        '🎁 Подарочный доступ активирован',
+        '',
+        f'Получатель: {display_user_name(recipient)}',
+        f"Формат: {subscription.tariff.name if getattr(subscription, 'tariff', None) else 'Доступ'}",
+        f'Действует до: {subscription.ends_at:%d.%m.%Y %H:%M}',
+        '',
+        'Получателю уже отправлено отдельное сообщение с доступом и ссылками для подключения.',
+    ]
+    return '\n'.join(lines)
+
+
+def render_abandoned_payment_message(payment) -> str:
+    method_titles = {
+        'yookassa': 'ЮKassa',
+        'crypto': 'Crypto Bot',
+        'stars': 'Telegram Stars',
+        'balance': 'Баланс',
+    }
+    tariff_name = payment.tariff.name if getattr(payment, 'tariff', None) else 'Подписка'
+    created_at = getattr(payment, 'created_at', None)
+    age_line = ''
+    if created_at:
+        age_minutes = max(int((datetime.utcnow() - created_at).total_seconds() // 60), 1)
+        if age_minutes >= 60:
+            hours = max(age_minutes // 60, 1)
+            age_line = f'Ссылка ждёт оплату примерно {hours} ч.'
+        else:
+            age_line = f'Ссылка ждёт оплату примерно {age_minutes} мин.'
+    lines = [
+        '💳 Оплата ещё не завершена',
+        '',
+        f'Тариф: {tariff_name}',
+        f'Сумма: {format_money(payment.amount, payment.currency)}',
+        f"Способ оплаты: {method_titles.get(payment.method, payment.method)}",
+    ]
+    if age_line:
+        lines.append(age_line)
+    lines.extend([
+        '',
+        'Если доступ всё ещё нужен, откройте прежнюю ссылку и завершите оплату.',
+    ])
+    return '\n'.join(lines)
+
+
+def build_abandoned_payment_keyboard(payment):
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text='💳 Открыть оплату', url=payment.provider_url))
+    builder.row(
+        InlineKeyboardButton(text='🛒 Тарифы', callback_data='nav:buy'),
+        InlineKeyboardButton(text='🏠 Главное меню', callback_data='nav:home'),
+    )
+    return builder.as_markup()
 
 def render_expiry_warning_message(subscription) -> str:
     now = datetime.utcnow()
@@ -174,28 +247,84 @@ async def notify_admins(
 
 
 async def activate_paid_payment(bot: Bot, store: Store, provisioning: ProvisioningService, payment_id: int) -> bool:
-    payment, user, _ = await store.get_payment_bundle(payment_id)
+    payment, payer_user, _ = await store.get_payment_bundle(payment_id)
     if not payment or payment.status != 'paid':
         return False
     subscription, vpn_keys, extended = await provisioning.activate_payment(payment_id)
-    if not user or not subscription:
+    recipient_user = getattr(subscription, 'user', None) if subscription else None
+    if not subscription or not recipient_user:
         return False
     should_send_notice = await store.try_mark_payment_activation_notice_sent(payment_id)
     if not should_send_notice:
         logger.info('Skipping duplicate payment activation notice for payment %s', payment_id)
         return True
-    reserve_url = await reserve_access_url_for(store, getattr(subscription, 'user', None))
+    reserve_url = await reserve_access_url_for(store, recipient_user)
+    subscription_url = build_subscription_url(subscription)
+    reserve_qr_callback = f"qr:reserve:{recipient_user.id}" if reserve_url and getattr(recipient_user, 'id', None) else None
     try:
-        await bot.send_message(
-            user.telegram_id,
-            render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
-            reply_markup=access_result_keyboard(build_subscription_action_rows(subscription), reserve_url=reserve_url),
-        )
+        if payer_user and getattr(payer_user, 'id', None) != getattr(recipient_user, 'id', None):
+            if getattr(payer_user, 'telegram_id', None):
+                await bot.send_message(
+                    payer_user.telegram_id,
+                    render_gift_purchase_activation_message(subscription),
+                    reply_markup=access_result_keyboard([]),
+                )
+            if getattr(recipient_user, 'telegram_id', None):
+                await bot.send_message(
+                    recipient_user.telegram_id,
+                    render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
+                    reply_markup=access_result_keyboard(
+                        build_subscription_action_rows(subscription),
+                        subscription_url=subscription_url,
+                        reserve_url=reserve_url,
+                        reserve_qr_callback=reserve_qr_callback,
+                    ),
+                )
+            else:
+                logger.warning('Gift recipient %s has no telegram_id for payment %s', getattr(recipient_user, 'id', None), payment_id)
+        else:
+            if not payer_user or not getattr(payer_user, 'telegram_id', None):
+                logger.warning('Paid payment %s has no payer telegram_id', payment_id)
+                return False
+            await bot.send_message(
+                payer_user.telegram_id,
+                render_payment_activation_message(subscription, vpn_keys, extended=extended, reserve_url=reserve_url),
+                reply_markup=access_result_keyboard(
+                    build_subscription_action_rows(subscription),
+                    subscription_url=subscription_url,
+                    reserve_url=reserve_url,
+                    reserve_qr_callback=reserve_qr_callback,
+                ),
+            )
     except Exception:
         await store.clear_payment_activation_notice_sent(payment_id)
         raise
     return True
 
+
+async def abandoned_payment_reminders_loop(bot: Bot, store: Store) -> None:
+    while True:
+        try:
+            payments = await store.list_abandoned_external_payments(
+                older_than_minutes=ABANDONED_PAYMENT_OLDER_THAN_MINUTES,
+            )
+            for payment in payments:
+                user = getattr(payment, 'user', None)
+                if not user or not getattr(user, 'telegram_id', None) or not getattr(payment, 'provider_url', ''):
+                    await store.mark_payment_reminder_sent(payment.id)
+                    continue
+                try:
+                    await bot.send_message(
+                        user.telegram_id,
+                        render_abandoned_payment_message(payment),
+                        reply_markup=build_abandoned_payment_keyboard(payment),
+                    )
+                    await store.mark_payment_reminder_sent(payment.id)
+                except Exception as exc:
+                    logger.warning('Failed to send abandoned payment reminder for payment %s: %s', payment.id, exc)
+        except Exception as exc:
+            logger.exception('Abandoned payment reminder loop failed: %s', exc)
+        await asyncio.sleep(ABANDONED_PAYMENT_REMINDER_INTERVAL_SECONDS)
 
 
 async def payment_polling_loop(bot: Bot, store: Store, payments: PaymentService, provisioning: ProvisioningService) -> None:
@@ -525,6 +654,7 @@ async def main() -> None:
     subscription_runner = await start_subscription_server(store, provisioning, payments, bot)
     tasks = [
         asyncio.create_task(payment_polling_loop(bot, store, payments, provisioning)),
+        asyncio.create_task(abandoned_payment_reminders_loop(bot, store)),
         asyncio.create_task(maintenance_loop(provisioning)),
         asyncio.create_task(expiry_notifications_loop(bot, store)),
         asyncio.create_task(server_alerts_loop(bot, store, provisioning)),

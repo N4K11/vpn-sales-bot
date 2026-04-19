@@ -423,4 +423,3 @@ class ProvisioningService:
         while self._failure_events and isinstance(self._failure_events[0].get('ts'), datetime) and self._failure_events[0]['ts'] < cutoff:
             self._failure_events.popleft()
 
-

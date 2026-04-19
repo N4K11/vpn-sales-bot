@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from math import ceil
 from urllib.parse import urlsplit
@@ -6,14 +6,14 @@ from urllib.parse import urlsplit
 from aiogram.types import CopyTextButton, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-PROFILE_LABEL = '👤 Мой профиль'
-BUY_LABEL = 'Подключить Air'
-HELP_LABEL = '❓ Справка'
-REFERRAL_LABEL = '🎁 Рефералы'
-TRIAL_LABEL = '🧪 Пробный доступ'
-ADMIN_LABEL = '⚙️ Админ-панель'
-HOME_LABEL = '🏠 Главное меню'
-BACK_LABEL = '◀ Назад'
+PROFILE_LABEL = 'РЎР‚РЎСџРІР‚ВР’В¤ Р В РЎС™Р В РЎвЂўР В РІвЂћвЂ“ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋРІР‚С›Р В РЎвЂР В Р’В»Р РЋР Р‰'
+BUY_LABEL = 'Р В РЎСџР В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Air'
+HELP_LABEL = 'Р Р†РЎСљРІР‚Сљ Р В Р Р‹Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ Р В РЎвЂќР В Р’В°'
+REFERRAL_LABEL = 'РЎР‚РЎСџР вЂ№Р С“ Р В Р’В Р В Р’ВµР РЋРІР‚С›Р В Р’ВµР РЋР вЂљР В Р’В°Р В Р’В»Р РЋРІР‚в„–'
+TRIAL_LABEL = 'РЎР‚РЎСџР’В§Р вЂћ Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”'
+ADMIN_LABEL = 'Р Р†РЎв„ўРІвЂћСћР С—РЎвЂР РЏ Р В РЎвЂ™Р В РўвЂР В РЎВР В РЎвЂР В Р вЂ¦-Р В РЎвЂ”Р В Р’В°Р В Р вЂ¦Р В Р’ВµР В Р’В»Р РЋР Р‰'
+HOME_LABEL = 'РЎР‚РЎСџР РЏР’В  Р В РІР‚СљР В Р’В»Р В Р’В°Р В Р вЂ Р В Р вЂ¦Р В РЎвЂўР В Р’Вµ Р В РЎВР В Р’ВµР В Р вЂ¦Р РЋР вЂ№'
+BACK_LABEL = 'Р Р†РІР‚вЂќР вЂљ Р В РЎСљР В Р’В°Р В Р’В·Р В Р’В°Р В РўвЂ'
 
 DEFAULT_USER_BUTTON_LABELS = {
     'nav_profile': PROFILE_LABEL,
@@ -23,28 +23,32 @@ DEFAULT_USER_BUTTON_LABELS = {
     'nav_trial': TRIAL_LABEL,
     'nav_home': HOME_LABEL,
     'nav_back': BACK_LABEL,
-    'help_channel': '📣 Канал',
-    'help_support': '🆘 Поддержка',
-    'referral_copy': '📋 Скопировать ссылку',
-    'trial_activate': '🚀 Активировать пробный период',
-    'help_devices': '📱 Как подключить',
-    'guide_ios': '📱 iPhone / iPad',
-    'guide_android': '🤖 Android',
-    'guide_windows': '🪟 Windows',
-    'guide_macos': '🍎 macOS',
-    'pay_stars': '⭐ Telegram Stars',
-    'pay_yookassa': '💳 YooKassa',
-    'pay_crypto': '🪙 Crypto',
-    'pay_balance': '💰 С баланса',
-    'pay_open_invoice': '💳 Перейти к оплате',
-    'subscription_qr': '📷 QR подписки',
-    'subscription_extend': '🕒 Продлить подписку',
-    'reserve_open': '🌍 Резервный кабинет',
-    'reserve_qr': '📷 QR резерва',
-    'key_copy': '📋 Скопировать ключ',
-    'key_qr': '📷 QR ключа',
-    'key_replace': '♻️ Заменить ключ',
-    'key_delete': '🗑️ Удалить ключ',
+    'help_channel': 'РЎР‚РЎСџРІР‚СљР в‚¬ Р В РЎв„ўР В Р’В°Р В Р вЂ¦Р В Р’В°Р В Р’В»',
+    'help_support': 'РЎР‚РЎСџРІР‚В Р’В Р В РЎСџР В РЎвЂўР В РўвЂР В РўвЂР В Р’ВµР РЋР вЂљР В Р’В¶Р В РЎвЂќР В Р’В°',
+    'referral_copy': 'РЎР‚РЎСџРІР‚СљРІР‚в„– Р В Р Р‹Р В РЎвЂќР В РЎвЂўР В РЎвЂ”Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р РЋР С“Р РЋРІР‚в„–Р В Р’В»Р В РЎвЂќР РЋРЎвЂњ',
+    'trial_activate': 'РЎР‚РЎСџРЎв„ўР вЂљ Р В РЎвЂ™Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂ”Р В Р’ВµР РЋР вЂљР В РЎвЂР В РЎвЂўР В РўвЂ',
+    'help_devices': 'РЎР‚РЎСџРІР‚СљР’В± Р В РЎв„ўР В Р’В°Р В РЎвЂќ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+    'guide_ios': 'РЎР‚РЎСџРІР‚СљР’В± iPhone / iPad',
+    'guide_android': 'РЎР‚РЎСџР’В¤РІР‚вЂњ Android',
+    'guide_windows': 'РЎР‚РЎСџР вЂћРЎСџ Windows',
+    'guide_macos': 'РЎР‚РЎСџР РЉР вЂ№ macOS',
+    'pay_stars': 'Р Р†Р’В­РЎвЂ™ Telegram Stars',
+    'pay_yookassa': 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ YooKassa',
+    'pay_crypto': 'РЎР‚РЎСџР вЂћРІвЂћСћ Crypto',
+    'pay_balance': 'РЎР‚РЎСџРІР‚в„ўР’В° Р В Р Р‹ Р В Р’В±Р В Р’В°Р В Р’В»Р В Р’В°Р В Р вЂ¦Р РЋР С“Р В Р’В°',
+    'buy_promo': 'РЎР‚РЎСџР вЂ№РЎСџР С—РЎвЂР РЏ Р В РЎСџР РЋР вЂљР В РЎвЂўР В РЎВР В РЎвЂўР В РЎвЂќР В РЎвЂўР В РўвЂ',
+    'buy_promo_clear': 'Р Р†РЎС™РІР‚вЂњ Р В Р Р‹Р В Р’В±Р РЋР вЂљР В РЎвЂўР РЋР С“Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РЎВР В РЎвЂўР В РЎвЂќР В РЎвЂўР В РўвЂ',
+    'buy_gift': 'РЎР‚РЎСџР вЂ№Р С“ Р В РЎСџР В РЎвЂўР В РўвЂР В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”',
+    'buy_gift_clear': 'Р Р†РЎС™РІР‚вЂњ Р В Р Р‹Р В Р’В±Р РЋР вЂљР В РЎвЂўР РЋР С“Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В Р’В°Р РЋР вЂљР В РЎвЂўР В РЎвЂќ',
+    'pay_open_invoice': 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В РІвЂћвЂ“Р РЋРІР‚С™Р В РЎвЂ Р В РЎвЂќ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’Вµ',
+    'subscription_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂќР В РЎвЂ',
+    'subscription_extend': 'РЎР‚РЎСџРІР‚СћРІР‚в„ў Р В РЎСџР РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂќР РЋРЎвЂњ',
+    'reserve_open': 'РЎР‚РЎСџР Р‰Р РЉ Р В Р’В Р В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂќР В Р’В°Р В Р’В±Р В РЎвЂР В Р вЂ¦Р В Р’ВµР РЋРІР‚С™',
+    'reserve_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р РЋР вЂљР В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’В°',
+    'key_copy': 'РЎР‚РЎСџРІР‚СљРІР‚в„– Р В Р Р‹Р В РЎвЂќР В РЎвЂўР В РЎвЂ”Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
+    'key_qr': 'РЎР‚РЎСџРІР‚СљР’В· QR Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’В°',
+    'key_replace': 'Р Р†РІвЂћСћР’В»Р С—РЎвЂР РЏ Р В РІР‚вЂќР В Р’В°Р В РЎВР В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
+    'key_delete': 'РЎР‚РЎСџРІР‚вЂќРІР‚ВР С—РЎвЂР РЏ Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋ',
 }
 
 
@@ -69,7 +73,7 @@ def build_main_menu(is_admin: bool, show_referral: bool, show_trial: bool, label
         rows.append([KeyboardButton(text=lb['nav_trial'])])
     if is_admin:
         rows.append([KeyboardButton(text=ADMIN_LABEL)])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='Выберите раздел')
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='Р В РІР‚в„ўР РЋРІР‚в„–Р В Р’В±Р В Р’ВµР РЋР вЂљР В РЎвЂР РЋРІР‚С™Р В Р’Вµ Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»')
 
 
 def _append_copy_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]]) -> None:
@@ -96,7 +100,7 @@ def _copy_link_label(value: str, limit: int = 44) -> str:
             display = f'{display}?...'
     if len(display) <= limit:
         return display
-    return display[: limit - 1] + '…'
+    return display[: limit - 1] + 'Р Р†Р вЂљР’В¦'
 
 def _append_compact_action_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]], width: int = 2) -> None:
     row: list[InlineKeyboardButton] = []
@@ -141,10 +145,10 @@ def profile_inline_keyboard(subscription_actions: list[tuple[str, str]], is_admi
     if total_pages > 1:
         pagination: list[InlineKeyboardButton] = []
         if page > 1:
-            pagination.append(InlineKeyboardButton(text='◀️', callback_data=f'nav:profile:{page - 1}'))
+            pagination.append(InlineKeyboardButton(text='Р Р†РІР‚вЂќР вЂљР С—РЎвЂР РЏ', callback_data=f'nav:profile:{page - 1}'))
         pagination.append(InlineKeyboardButton(text=f'{page}/{total_pages}', callback_data='noop'))
         if page < total_pages:
-            pagination.append(InlineKeyboardButton(text='▶️', callback_data=f'nav:profile:{page + 1}'))
+            pagination.append(InlineKeyboardButton(text='Р Р†РІР‚вЂњР’В¶Р С—РЎвЂР РЏ', callback_data=f'nav:profile:{page + 1}'))
         builder.row(*pagination)
     builder.row(InlineKeyboardButton(text=lb['nav_back'], callback_data='nav:home'))
     return builder.as_markup()
@@ -262,7 +266,13 @@ def back_keyboard(callback_data: str, label: str | None = None, include_home: bo
     return builder.as_markup()
 
 
-def tariffs_keyboard(tariffs, extend_subscription_id: int | None = None, back_callback: str = 'nav:home', labels: dict[str, str] | None = None):
+def tariffs_keyboard(
+    tariffs,
+    extend_subscription_id: int | None = None,
+    back_callback: str = 'nav:home',
+    labels: dict[str, str] | None = None,
+    promo_applied: str | None = None,
+):
     lb = _user_labels(labels)
     builder = InlineKeyboardBuilder()
     for tariff in tariffs:
@@ -270,16 +280,30 @@ def tariffs_keyboard(tariffs, extend_subscription_id: int | None = None, back_ca
         if extend_subscription_id:
             callback = f'buy:tariff:{tariff.id}:extend:{extend_subscription_id}'
         builder.row(InlineKeyboardButton(text=f'📦 {tariff.name} • {tariff.days} дн.', callback_data=callback))
+    promo_label = lb['buy_promo_clear'] if promo_applied else lb['buy_promo']
+    promo_callback = 'buy:promo:clear' if promo_applied else 'buy:promo'
+    builder.row(InlineKeyboardButton(text=(f'✅ {promo_applied}' if promo_applied else promo_label), callback_data=promo_callback))
     builder.row(InlineKeyboardButton(text=lb['nav_back'], callback_data=back_callback))
     if back_callback != 'nav:home':
         builder.row(InlineKeyboardButton(text=lb['nav_home'], callback_data='nav:home'))
     return builder.as_markup()
 
 
-def payment_methods_keyboard(tariff_id: int, methods: list[str], extend_subscription_id: int | None = None, back_callback: str = 'buy:back', labels: dict[str, str] | None = None):
+def payment_methods_keyboard(
+    tariff_id: int,
+    methods: list[str],
+    extend_subscription_id: int | None = None,
+    back_callback: str = 'buy:back',
+    labels: dict[str, str] | None = None,
+    gift_active: bool = False,
+):
     lb = _user_labels(labels)
     labels_map = {'stars': lb['pay_stars'], 'yookassa': lb['pay_yookassa'], 'crypto': lb['pay_crypto'], 'balance': lb['pay_balance']}
     builder = InlineKeyboardBuilder()
+    if not extend_subscription_id:
+        gift_label = lb['buy_gift_clear'] if gift_active else lb['buy_gift']
+        gift_callback = 'buy:gift:clear' if gift_active else f'buy:gift:{tariff_id}'
+        builder.row(InlineKeyboardButton(text=gift_label, callback_data=gift_callback))
     for method in methods:
         callback = f'buy:method:{method}:{tariff_id}'
         if extend_subscription_id:
@@ -307,6 +331,7 @@ def admin_panel_keyboard(role: str = 'owner'):
         )
     if role in {'owner', 'admin', 'support'}:
         builder.row(InlineKeyboardButton(text='📝 Тексты', callback_data='adm:texts'))
+        builder.row(InlineKeyboardButton(text='🎟️ Промокоды', callback_data='adm:promos'))
         builder.row(
             InlineKeyboardButton(text='📚 Инструкции', callback_data='adm:guide'),
             InlineKeyboardButton(text='🌍 Резерв', callback_data='adm:reserve'),
@@ -328,12 +353,38 @@ def admin_panel_keyboard(role: str = 'owner'):
     builder.row(InlineKeyboardButton(text='🚀 Обновления', callback_data='adm:updates'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
+
+
+def promos_admin_keyboard(promos, renewal_discount_percent: int = 0):
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text='➕ Создать промокод', callback_data='adm:promos:create'),
+        InlineKeyboardButton(text=f'🕒 Продление {renewal_discount_percent}%', callback_data='adm:promos:renewal'),
+    )
+    for promo in promos:
+        badge = '🟢' if getattr(promo, 'is_active', False) else '⚫'
+        builder.row(InlineKeyboardButton(text=f'{badge} {promo.code}', callback_data=f'adm:promos:view:{promo.id}'))
+    builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
+    builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
+    return builder.as_markup()
+
+
+def promo_detail_keyboard(promo_id: int, is_active: bool):
+    builder = InlineKeyboardBuilder()
+    toggle_text = '⏸ Выключить' if is_active else '▶️ Включить'
+    builder.row(
+        InlineKeyboardButton(text=toggle_text, callback_data=f'adm:promos:toggle:{promo_id}'),
+        InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'adm:promos:delete:{promo_id}'),
+    )
+    builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:promos'))
+    builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
+    return builder.as_markup()
 def analytics_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='🔄 Обновить аналитику', callback_data='adm:analytics'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚С› Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В°Р В Р вЂ¦Р В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р В РЎвЂР В РЎвЂќР РЋРЎвЂњ', callback_data='adm:analytics'))
     builder.row(
-        InlineKeyboardButton(text='📄 Экспорт CSV', callback_data='adm:analytics:csv'),
-        InlineKeyboardButton(text='📊 Экспорт Excel', callback_data='adm:analytics:xls'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљРІР‚С› Р В Р’В­Р В РЎвЂќР РЋР С“Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ CSV', callback_data='adm:analytics:csv'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљР вЂ° Р В Р’В­Р В РЎвЂќР РЋР С“Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Excel', callback_data='adm:analytics:xls'),
     )
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
@@ -342,14 +393,14 @@ def analytics_keyboard():
 
 def finance_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='🔄 Обновить финансы', callback_data='adm:finance'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚С› Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С›Р В РЎвЂР В Р вЂ¦Р В Р’В°Р В Р вЂ¦Р РЋР С“Р РЋРІР‚в„–', callback_data='adm:finance'))
     builder.row(
-        InlineKeyboardButton(text='📄 Экспорт CSV', callback_data='adm:finance:csv'),
-        InlineKeyboardButton(text='📊 Экспорт Excel', callback_data='adm:finance:xls'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљРІР‚С› Р В Р’В­Р В РЎвЂќР РЋР С“Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ CSV', callback_data='adm:finance:csv'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљР вЂ° Р В Р’В­Р В РЎвЂќР РЋР С“Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Excel', callback_data='adm:finance:xls'),
     )
     builder.row(
-        InlineKeyboardButton(text='🖥️ К серверам', callback_data='adm:servers'),
-        InlineKeyboardButton(text='📈 К аналитике', callback_data='adm:analytics'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚вЂњРўС’Р С—РЎвЂР РЏ Р В РЎв„ў Р РЋР С“Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’ВµР РЋР вЂљР В Р’В°Р В РЎВ', callback_data='adm:servers'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљРІвЂљВ¬ Р В РЎв„ў Р В Р’В°Р В Р вЂ¦Р В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р В РЎвЂР В РЎвЂќР В Р’Вµ', callback_data='adm:analytics'),
     )
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
@@ -360,15 +411,15 @@ def admin_guide_keyboard(current_section: str = 'start'):
     builder = InlineKeyboardBuilder()
 
     def tab(key: str, title: str) -> InlineKeyboardButton:
-        prefix = '• ' if key == current_section else ''
+        prefix = 'Р Р†Р вЂљРЎС› ' if key == current_section else ''
         return InlineKeyboardButton(text=f'{prefix}{title}', callback_data=f'adm:guide:{key}')
 
-    builder.row(tab('start', '🚀 Быстрый старт'), tab('users', '👥 Пользователи'))
-    builder.row(tab('servers', '🖥️ Серверы'), tab('tariffs', '📦 Тарифы'))
-    builder.row(tab('payments', '💳 Оплаты'), tab('finance', '💰 Финансы'))
-    builder.row(tab('analytics', '📈 Аналитика'), tab('texts', '📝 Тексты'))
-    builder.row(tab('programs', '🎁 Реф/Пробный'), tab('service', '🗄️ Сервис'))
-    builder.row(tab('reserve', '🌍 Резерв'))
+    builder.row(tab('start', 'РЎР‚РЎСџРЎв„ўР вЂљ Р В РІР‚ВР РЋРІР‚в„–Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР РЋРІР‚в„–Р В РІвЂћвЂ“ Р РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР РЋРІР‚С™'), tab('users', 'РЎР‚РЎСџРІР‚ВРўС’ Р В РЎСџР В РЎвЂўР В Р’В»Р РЋР Р‰Р В Р’В·Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р В Р’ВµР В Р’В»Р В РЎвЂ'))
+    builder.row(tab('servers', 'РЎР‚РЎСџРІР‚вЂњРўС’Р С—РЎвЂР РЏ Р В Р Р‹Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’ВµР РЋР вЂљР РЋРІР‚в„–'), tab('tariffs', 'РЎР‚РЎСџРІР‚СљР’В¦ Р В РЎС›Р В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С›Р РЋРІР‚в„–'))
+    builder.row(tab('payments', 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРІР‚в„–'), tab('finance', 'РЎР‚РЎСџРІР‚в„ўР’В° Р В Р’В¤Р В РЎвЂР В Р вЂ¦Р В Р’В°Р В Р вЂ¦Р РЋР С“Р РЋРІР‚в„–'))
+    builder.row(tab('analytics', 'РЎР‚РЎСџРІР‚СљРІвЂљВ¬ Р В РЎвЂ™Р В Р вЂ¦Р В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р В РЎвЂР В РЎвЂќР В Р’В°'), tab('texts', 'РЎР‚РЎСџРІР‚СљРЎСљ Р В РЎС›Р В Р’ВµР В РЎвЂќР РЋР С“Р РЋРІР‚С™Р РЋРІР‚в„–'))
+    builder.row(tab('programs', 'РЎР‚РЎСџР вЂ№Р С“ Р В Р’В Р В Р’ВµР РЋРІР‚С›/Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“'), tab('service', 'РЎР‚РЎСџРІР‚вЂќРІР‚С›Р С—РЎвЂР РЏ Р В Р Р‹Р В Р’ВµР РЋР вЂљР В Р вЂ Р В РЎвЂР РЋР С“'))
+    builder.row(tab('reserve', 'РЎР‚РЎСџР Р‰Р РЉ Р В Р’В Р В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ '))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -376,10 +427,10 @@ def admin_guide_keyboard(current_section: str = 'start'):
 
 def tariffs_admin_keyboard(tariffs):
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='➕ Создать тариф', callback_data='adm:tariff:add'))
+    builder.row(InlineKeyboardButton(text='Р Р†РЎвЂєРІР‚Сћ Р В Р Р‹Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С›', callback_data='adm:tariff:add'))
     for tariff in tariffs:
-        status = '🟢' if tariff.is_active else '⚫'
-        builder.row(InlineKeyboardButton(text=f'{status} {tariff.name} • {tariff.days} дн.', callback_data=f'adm:tariff:view:{tariff.id}'))
+        status = 'РЎР‚РЎСџРЎСџРЎС›' if tariff.is_active else 'Р Р†РЎв„ўР’В«'
+        builder.row(InlineKeyboardButton(text=f'{status} {tariff.name} Р Р†Р вЂљРЎС› {tariff.days} Р В РўвЂР В Р вЂ¦.', callback_data=f'adm:tariff:view:{tariff.id}'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -387,12 +438,12 @@ def tariffs_admin_keyboard(tariffs):
 
 def tariff_detail_keyboard(tariff_id: int, is_active: bool):
     builder = InlineKeyboardBuilder()
-    toggle_text = '🙈 Скрыть тариф' if is_active else '👁️ Показать тариф'
+    toggle_text = 'РЎР‚РЎСџРІвЂћСћРІвЂљВ¬ Р В Р Р‹Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С›' if is_active else 'РЎР‚РЎСџРІР‚ВР С“Р С—РЎвЂР РЏ Р В РЎСџР В РЎвЂўР В РЎвЂќР В Р’В°Р В Р’В·Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С›'
     builder.row(
-        InlineKeyboardButton(text='✏️ Редактировать', callback_data=f'adm:tariff:edit:{tariff_id}'),
+        InlineKeyboardButton(text='Р Р†РЎС™Р РЏР С—РЎвЂР РЏ Р В Р’В Р В Р’ВµР В РўвЂР В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰', callback_data=f'adm:tariff:edit:{tariff_id}'),
         InlineKeyboardButton(text=toggle_text, callback_data=f'adm:tariff:toggle:{tariff_id}'),
     )
-    builder.row(InlineKeyboardButton(text='🗑️ Удалить тариф', callback_data=f'adm:tariff:delete:{tariff_id}'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚вЂќРІР‚ВР С—РЎвЂР РЏ Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР РЋРІР‚С›', callback_data=f'adm:tariff:delete:{tariff_id}'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:tariffs'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -404,22 +455,22 @@ def toggles_keyboard(toggles, payment_config: dict | None = None):
     state_map = {toggle.key: toggle.is_enabled for toggle in toggles}
 
     def label(key: str, title: str) -> str:
-        return f"{title} • {'включено' if state_map.get(key, False) else 'скрыто'}"
+        return f"{title} Р Р†Р вЂљРЎС› {'Р В Р вЂ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂў' if state_map.get(key, False) else 'Р РЋР С“Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂў'}"
 
     yookassa_ready = bool(payment_config.get('yookassa_shop_id') and payment_config.get('yookassa_secret_key'))
     crypto_ready = bool(payment_config.get('crypto_pay_token'))
 
     builder.row(
-        InlineKeyboardButton(text=label('payment_balance', '💰 Баланс'), callback_data='adm:toggle:payment_balance'),
-        InlineKeyboardButton(text=label('payment_stars', '⭐ Stars'), callback_data='adm:toggle:payment_stars'),
+        InlineKeyboardButton(text=label('payment_balance', 'РЎР‚РЎСџРІР‚в„ўР’В° Р В РІР‚ВР В Р’В°Р В Р’В»Р В Р’В°Р В Р вЂ¦Р РЋР С“'), callback_data='adm:toggle:payment_balance'),
+        InlineKeyboardButton(text=label('payment_stars', 'Р Р†Р’В­РЎвЂ™ Stars'), callback_data='adm:toggle:payment_stars'),
     )
     builder.row(
-        InlineKeyboardButton(text=label('payment_yookassa', '💳 YooKassa'), callback_data='adm:toggle:payment_yookassa'),
-        InlineKeyboardButton(text=label('payment_crypto', '🪙 Crypto'), callback_data='adm:toggle:payment_crypto'),
+        InlineKeyboardButton(text=label('payment_yookassa', 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ YooKassa'), callback_data='adm:toggle:payment_yookassa'),
+        InlineKeyboardButton(text=label('payment_crypto', 'РЎР‚РЎСџР вЂћРІвЂћСћ Crypto'), callback_data='adm:toggle:payment_crypto'),
     )
     builder.row(
-        InlineKeyboardButton(text=f"⚙️ YooKassa {'готова' if yookassa_ready else 'не настроена'}", callback_data='adm:paymentcfg:yookassa'),
-        InlineKeyboardButton(text=f"⚙️ Crypto {'готов' if crypto_ready else 'не настроен'}", callback_data='adm:paymentcfg:crypto'),
+        InlineKeyboardButton(text=f"Р Р†РЎв„ўРІвЂћСћР С—РЎвЂР РЏ YooKassa {'Р В РЎвЂ“Р В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°' if yookassa_ready else 'Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В Р’ВµР В Р вЂ¦Р В Р’В°'}", callback_data='adm:paymentcfg:yookassa'),
+        InlineKeyboardButton(text=f"Р Р†РЎв„ўРІвЂћСћР С—РЎвЂР РЏ Crypto {'Р В РЎвЂ“Р В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР В Р вЂ ' if crypto_ready else 'Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В Р’ВµР В Р вЂ¦'}", callback_data='adm:paymentcfg:crypto'),
     )
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
@@ -428,13 +479,13 @@ def toggles_keyboard(toggles, payment_config: dict | None = None):
 
 def _user_filter_button_text(filter_key: str, active_filter: str, counts: dict[str, int]) -> str:
     labels = {
-        'all': '👥 Все',
-        'active': '🟢 Активные',
-        'inactive': '🔴 Без доступа',
-        'new': '🆕 Новые',
-        'never': '📭 Без покупок',
+        'all': 'РЎР‚РЎСџРІР‚ВРўС’ Р В РІР‚в„ўР РЋР С“Р В Р’Вµ',
+        'active': 'РЎР‚РЎСџРЎСџРЎС› Р В РЎвЂ™Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В Р’Вµ',
+        'inactive': 'РЎР‚РЎСџРІР‚СњРўвЂ Р В РІР‚ВР В Р’ВµР В Р’В· Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р’В°',
+        'new': 'РЎР‚РЎСџРІР‚В РІР‚Сћ Р В РЎСљР В РЎвЂўР В Р вЂ Р РЋРІР‚в„–Р В Р’Вµ',
+        'never': 'РЎР‚РЎСџРІР‚СљР’В­ Р В РІР‚ВР В Р’ВµР В Р’В· Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂўР В РЎвЂќ',
     }
-    prefix = '• ' if filter_key == active_filter else ''
+    prefix = 'Р Р†Р вЂљРЎС› ' if filter_key == active_filter else ''
     return f"{prefix}{labels.get(filter_key, filter_key)} {counts.get(filter_key, 0)}"
 
 
@@ -465,17 +516,17 @@ def users_list_keyboard(users, filter_key: str, page: int, total: int, page_size
     if users:
         for user in users:
             label = user.full_name or user.username or str(user.telegram_id)
-            prefix = '⛔' if getattr(user, 'is_blocked', False) else '👤'
+            prefix = 'Р Р†РІР‚С”РІР‚Сњ' if getattr(user, 'is_blocked', False) else 'РЎР‚РЎСџРІР‚ВР’В¤'
             builder.row(InlineKeyboardButton(text=f'{prefix} {label[:35]}', callback_data=f'adm:user:{user.id}:{filter_key}:{page}'))
     else:
-        builder.row(InlineKeyboardButton(text='— Список пуст —', callback_data='noop'))
+        builder.row(InlineKeyboardButton(text='Р Р†Р вЂљРІР‚Сњ Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂўР В РЎвЂќ Р В РЎвЂ”Р РЋРЎвЂњР РЋР С“Р РЋРІР‚С™ Р Р†Р вЂљРІР‚Сњ', callback_data='noop'))
     total_pages = max(1, ceil(total / page_size))
     pagination_row: list[InlineKeyboardButton] = []
     if page > 1:
-        pagination_row.append(InlineKeyboardButton(text='⬅️', callback_data=f'adm:users:{filter_key}:{page - 1}'))
+        pagination_row.append(InlineKeyboardButton(text='Р Р†Р’В¬РІР‚В¦Р С—РЎвЂР РЏ', callback_data=f'adm:users:{filter_key}:{page - 1}'))
     pagination_row.append(InlineKeyboardButton(text=f'{page}/{total_pages}', callback_data='noop'))
     if page < total_pages:
-        pagination_row.append(InlineKeyboardButton(text='➡️', callback_data=f'adm:users:{filter_key}:{page + 1}'))
+        pagination_row.append(InlineKeyboardButton(text='Р Р†РЎвЂєР Р‹Р С—РЎвЂР РЏ', callback_data=f'adm:users:{filter_key}:{page + 1}'))
     builder.row(*pagination_row)
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
@@ -496,24 +547,24 @@ def user_actions_keyboard(
     builder = InlineKeyboardBuilder()
     top_row = []
     if can_grant_balance:
-        top_row.append(InlineKeyboardButton(text='💳 Выдать баланс', callback_data=f'adm:user:balance:{user_id}:{filter_key}:{page}'))
+        top_row.append(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РІР‚в„ўР РЋРІР‚в„–Р В РўвЂР В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В±Р В Р’В°Р В Р’В»Р В Р’В°Р В Р вЂ¦Р РЋР С“', callback_data=f'adm:user:balance:{user_id}:{filter_key}:{page}'))
     if can_grant_access:
-        top_row.append(InlineKeyboardButton(text='🔑 Выдать доступ', callback_data=f'adm:user:key:{user_id}:{filter_key}:{page}'))
+        top_row.append(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚В Р В РІР‚в„ўР РЋРІР‚в„–Р В РўвЂР В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”', callback_data=f'adm:user:key:{user_id}:{filter_key}:{page}'))
     if top_row:
         builder.row(*top_row)
     builder.row(
-        InlineKeyboardButton(text='📜 Операции', callback_data=f'adm:user:ops:{user_id}:{filter_key}:{page}'),
-        InlineKeyboardButton(text='👥 Рефералы', callback_data=f'adm:user:refs:{user_id}:{filter_key}:{page}'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљРЎС™ Р В РЎвЂєР В РЎвЂ”Р В Р’ВµР РЋР вЂљР В Р’В°Р РЋРІР‚В Р В РЎвЂР В РЎвЂ', callback_data=f'adm:user:ops:{user_id}:{filter_key}:{page}'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚ВРўС’ Р В Р’В Р В Р’ВµР РЋРІР‚С›Р В Р’ВµР РЋР вЂљР В Р’В°Р В Р’В»Р РЋРІР‚в„–', callback_data=f'adm:user:refs:{user_id}:{filter_key}:{page}'),
     )
     extra_row = []
     if can_view_diagnostics:
-        extra_row.append(InlineKeyboardButton(text='🧯 Диагностика', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
+        extra_row.append(InlineKeyboardButton(text='РЎР‚РЎСџР’В§Р вЂЎ Р В РІР‚СњР В РЎвЂР В Р’В°Р В РЎвЂ“Р В Р вЂ¦Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В РЎвЂР В РЎвЂќР В Р’В°', callback_data=f'adm:user:diag:{user_id}:{filter_key}:{page}'))
     if can_manage_role:
-        extra_row.append(InlineKeyboardButton(text='🛡️ Роль', callback_data=f'adm:user:role:{user_id}:{filter_key}:{page}'))
+        extra_row.append(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚С”Р Р‹Р С—РЎвЂР РЏ Р В Р’В Р В РЎвЂўР В Р’В»Р РЋР Р‰', callback_data=f'adm:user:role:{user_id}:{filter_key}:{page}'))
     if extra_row:
         builder.row(*extra_row)
     if can_manage_block:
-        block_text = '✅ Разблокировать' if is_blocked else '🚫 Заблокировать'
+        block_text = 'Р Р†РЎС™РІР‚В¦ Р В Р’В Р В Р’В°Р В Р’В·Р В Р’В±Р В Р’В»Р В РЎвЂўР В РЎвЂќР В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰' if is_blocked else 'РЎР‚РЎСџРЎв„ўР’В« Р В РІР‚вЂќР В Р’В°Р В Р’В±Р В Р’В»Р В РЎвЂўР В РЎвЂќР В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰'
         builder.row(InlineKeyboardButton(text=block_text, callback_data=f'adm:user:block:{user_id}:{filter_key}:{page}'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data=f'adm:users:{filter_key}:{page}'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
@@ -536,16 +587,16 @@ def contents_keyboard(contents, group: str = 'texts'):
     builder = InlineKeyboardBuilder()
 
     def tab(key: str, title: str) -> InlineKeyboardButton:
-        prefix = '• ' if key == group else ''
+        prefix = 'Р Р†Р вЂљРЎС› ' if key == group else ''
         return InlineKeyboardButton(text=f'{prefix}{title}', callback_data=f'adm:texts:{key}')
 
-    builder.row(tab('texts', '📝 Тексты'), tab('buttons', '🔘 Кнопки'))
+    builder.row(tab('texts', 'РЎР‚РЎСџРІР‚СљРЎСљ Р В РЎС›Р В Р’ВµР В РЎвЂќР РЋР С“Р РЋРІР‚С™Р РЋРІР‚в„–'), tab('buttons', 'РЎР‚РЎСџРІР‚СњР’В Р В РЎв„ўР В Р вЂ¦Р В РЎвЂўР В РЎвЂ”Р В РЎвЂќР В РЎвЂ'))
     if contents:
-        icon = '📝' if group == 'texts' else '🔘'
+        icon = 'РЎР‚РЎСџРІР‚СљРЎСљ' if group == 'texts' else 'РЎР‚РЎСџРІР‚СњР’В'
         for page in contents:
             builder.row(InlineKeyboardButton(text=f'{icon} {page.title}', callback_data=f'adm:text:{group}:{page.key}'))
     else:
-        builder.row(InlineKeyboardButton(text='— Ничего не найдено —', callback_data='noop'))
+        builder.row(InlineKeyboardButton(text='Р Р†Р вЂљРІР‚Сњ Р В РЎСљР В РЎвЂР РЋРІР‚РЋР В Р’ВµР В РЎвЂ“Р В РЎвЂў Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦Р В РЎвЂў Р Р†Р вЂљРІР‚Сњ', callback_data='noop'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -554,19 +605,19 @@ def contents_keyboard(contents, group: str = 'texts'):
 def servers_keyboard(servers):
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text='➕ Добавить сервер', callback_data='adm:server:add'),
-        InlineKeyboardButton(text='🔄 Проверить все', callback_data='adm:server:refresh'),
+        InlineKeyboardButton(text='Р Р†РЎвЂєРІР‚Сћ Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’ВµР РЋР вЂљ', callback_data='adm:server:add'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚С› Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р вЂ Р РЋР С“Р В Р’Вµ', callback_data='adm:server:refresh'),
     )
-    builder.row(InlineKeyboardButton(text='📊 Обновить трафик ключей', callback_data='adm:server:usage'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљР вЂ° Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р РЋР вЂљР В Р’В°Р РЋРІР‚С›Р В РЎвЂР В РЎвЂќ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’ВµР В РІвЂћвЂ“', callback_data='adm:server:usage'))
     for server in servers:
-        health_icon = getattr(server, 'health_badge_icon', '⚪')
+        health_icon = getattr(server, 'health_badge_icon', 'Р Р†РЎв„ўР вЂћ')
         health_score = getattr(server, 'health_score', 0)
         active_keys = getattr(server, 'active_keys_count', 0)
         expired_keys = getattr(server, 'expired_keys_count', 0)
         subscriptions = getattr(server, 'active_subscriptions_count', 0)
         builder.row(
             InlineKeyboardButton(
-                text=f'{health_icon} {server.name} • {health_score}/100 • ключи {active_keys}/{expired_keys} • пользователи {subscriptions}',
+                text=f'{health_icon} {server.name} Р Р†Р вЂљРЎС› {health_score}/100 Р Р†Р вЂљРЎС› Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂ {active_keys}/{expired_keys} Р Р†Р вЂљРЎС› Р В РЎвЂ”Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В Р’В·Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р В Р’ВµР В Р’В»Р В РЎвЂ {subscriptions}',
                 callback_data=f'adm:server:view:{server.id}',
             )
         )
@@ -578,46 +629,46 @@ def servers_keyboard(servers):
 def server_actions_keyboard(server_id: int, panel_url: str | None = None, agent_configured: bool = False, agent_online: bool = False, billing_configured: bool = False):
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text='🔄 Проверить сервер', callback_data=f'adm:server:refreshone:{server_id}'),
-        InlineKeyboardButton(text='👁️ В выдачу / скрыть', callback_data=f'adm:server:toggle:{server_id}'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚С› Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’ВµР РЋР вЂљ', callback_data=f'adm:server:refreshone:{server_id}'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚ВР С“Р С—РЎвЂР РЏ Р В РІР‚в„ў Р В Р вЂ Р РЋРІР‚в„–Р В РўвЂР В Р’В°Р РЋРІР‚РЋР РЋРЎвЂњ / Р РЋР С“Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰', callback_data=f'adm:server:toggle:{server_id}'),
     )
     builder.row(
-        InlineKeyboardButton(text='📊 Трафик ключей', callback_data='adm:server:usage'),
-        InlineKeyboardButton(text='🧪 Trial on/off', callback_data=f'adm:server:trial:{server_id}'),
+        InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљР вЂ° Р В РЎС›Р РЋР вЂљР В Р’В°Р РЋРІР‚С›Р В РЎвЂР В РЎвЂќ Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’ВµР В РІвЂћвЂ“', callback_data='adm:server:usage'),
+        InlineKeyboardButton(text='РЎР‚РЎСџР’В§Р вЂћ Trial on/off', callback_data=f'adm:server:trial:{server_id}'),
     )
     builder.row(
-        InlineKeyboardButton(text=('💳 Настроить оплату' if billing_configured else '💳 Добавить оплату'), callback_data=f'adm:server:billingcfg:{server_id}'),
-        InlineKeyboardButton(text='✅ Отметить оплату', callback_data=f'adm:server:billingpaid:{server_id}'),
+        InlineKeyboardButton(text=('РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РЎСљР В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњ' if billing_configured else 'РЎР‚РЎСџРІР‚в„ўРЎвЂ“ Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњ'), callback_data=f'adm:server:billingcfg:{server_id}'),
+        InlineKeyboardButton(text='Р Р†РЎС™РІР‚В¦ Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњ', callback_data=f'adm:server:billingpaid:{server_id}'),
     )
-    builder.row(InlineKeyboardButton(text='🧯 История сбоев', callback_data=f'adm:server:failures:{server_id}'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџР’В§Р вЂЎ Р В Р’ВР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В РЎвЂР РЋР РЏ Р РЋР С“Р В Р’В±Р В РЎвЂўР В Р’ВµР В Р вЂ ', callback_data=f'adm:server:failures:{server_id}'))
     if agent_configured:
         builder.row(
-            InlineKeyboardButton(text=f'🤖 Агент {"online" if agent_online else "offline"}', callback_data=f'adm:server:agentstatus:{server_id}'),
-            InlineKeyboardButton(text='⚙️ Настроить агент', callback_data=f'adm:server:agentcfg:{server_id}'),
+            InlineKeyboardButton(text=f'РЎР‚РЎСџР’В¤РІР‚вЂњ Р В РЎвЂ™Р В РЎвЂ“Р В Р’ВµР В Р вЂ¦Р РЋРІР‚С™ {"online" if agent_online else "offline"}', callback_data=f'adm:server:agentstatus:{server_id}'),
+            InlineKeyboardButton(text='Р Р†РЎв„ўРІвЂћСћР С—РЎвЂР РЏ Р В РЎСљР В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В°Р В РЎвЂ“Р В Р’ВµР В Р вЂ¦Р РЋРІР‚С™', callback_data=f'adm:server:agentcfg:{server_id}'),
         )
         builder.row(
-            InlineKeyboardButton(text='♻️ Рестарт 3x-ui', callback_data=f'adm:server:agentcmd:{server_id}:restart_3x_ui'),
-            InlineKeyboardButton(text='🛰️ Рестарт Xray', callback_data=f'adm:server:agentcmd:{server_id}:restart_xray'),
+            InlineKeyboardButton(text='Р Р†РІвЂћСћР’В»Р С—РЎвЂР РЏ Р В Р’В Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР РЋРІР‚С™ 3x-ui', callback_data=f'adm:server:agentcmd:{server_id}:restart_3x_ui'),
+            InlineKeyboardButton(text='РЎР‚РЎСџРІР‚С”Р’В°Р С—РЎвЂР РЏ Р В Р’В Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР РЋРІР‚С™ Xray', callback_data=f'adm:server:agentcmd:{server_id}:restart_xray'),
         )
         builder.row(
-            InlineKeyboardButton(text='⌨️ Своя команда', callback_data=f'adm:server:agentcustom:{server_id}'),
-            InlineKeyboardButton(text='🧹 Отключить агент', callback_data=f'adm:server:agentclear:{server_id}'),
+            InlineKeyboardButton(text='Р Р†Р Р‰Р РѓР С—РЎвЂР РЏ Р В Р Р‹Р В Р вЂ Р В РЎвЂўР РЋР РЏ Р В РЎвЂќР В РЎвЂўР В РЎВР В Р’В°Р В Р вЂ¦Р В РўвЂР В Р’В°', callback_data=f'adm:server:agentcustom:{server_id}'),
+            InlineKeyboardButton(text='РЎР‚РЎСџР’В§РІвЂћвЂ“ Р В РЎвЂєР РЋРІР‚С™Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В°Р В РЎвЂ“Р В Р’ВµР В Р вЂ¦Р РЋРІР‚С™', callback_data=f'adm:server:agentclear:{server_id}'),
         )
     else:
-        builder.row(InlineKeyboardButton(text='🤖 Подключить агент Ubuntu', callback_data=f'adm:server:agentcfg:{server_id}'))
+        builder.row(InlineKeyboardButton(text='РЎР‚РЎСџР’В¤РІР‚вЂњ Р В РЎСџР В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В°Р В РЎвЂ“Р В Р’ВµР В Р вЂ¦Р РЋРІР‚С™ Ubuntu', callback_data=f'adm:server:agentcfg:{server_id}'))
     if panel_url:
-        builder.row(InlineKeyboardButton(text='🔗 Открыть панель', url=panel_url))
-    builder.row(InlineKeyboardButton(text='🗑️ Удалить сервер', callback_data=f'adm:server:delete:{server_id}'))
+        builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚вЂќ Р В РЎвЂєР РЋРІР‚С™Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В Р’В°Р В Р вЂ¦Р В Р’ВµР В Р’В»Р РЋР Р‰', url=panel_url))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚вЂќРІР‚ВР С—РЎвЂР РЏ Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р’ВµР РЋР вЂљ', callback_data=f'adm:server:delete:{server_id}'))
     builder.row(
         InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:servers'),
         InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'),
     )
     return builder.as_markup()
 def referral_admin_keyboard(is_visible: bool):
-    visibility = 'скрыть раздел' if is_visible else 'показать раздел'
+    visibility = 'Р РЋР С“Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»' if is_visible else 'Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В°Р В Р’В·Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»'
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='✏️ Изменить процент', callback_data='adm:referral:edit'))
-    builder.row(InlineKeyboardButton(text=f'👁️ {visibility}', callback_data='adm:toggle:section_referral'))
+    builder.row(InlineKeyboardButton(text='Р Р†РЎС™Р РЏР С—РЎвЂР РЏ Р В Р’ВР В Р’В·Р В РЎВР В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р РЋРІР‚С™', callback_data='adm:referral:edit'))
+    builder.row(InlineKeyboardButton(text=f'РЎР‚РЎСџРІР‚ВР С“Р С—РЎвЂР РЏ {visibility}', callback_data='adm:toggle:section_referral'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -625,17 +676,17 @@ def referral_admin_keyboard(is_visible: bool):
 
 def trial_admin_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='✏️ Настроить пробный доступ', callback_data='adm:trial:edit'))
-    builder.row(InlineKeyboardButton(text='👁️ Показать / скрыть раздел', callback_data='adm:toggle:section_trial'))
+    builder.row(InlineKeyboardButton(text='Р Р†РЎС™Р РЏР С—РЎвЂР РЏ Р В РЎСљР В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р’В±Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”', callback_data='adm:trial:edit'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚ВР С“Р С—РЎвЂР РЏ Р В РЎСџР В РЎвЂўР В РЎвЂќР В Р’В°Р В Р’В·Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ / Р РЋР С“Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»', callback_data='adm:toggle:section_trial'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
 
 
 def reserve_admin_keyboard(is_visible: bool):
-    visibility = 'скрыть резервный кабинет' if is_visible else 'показать резервный кабинет'
+    visibility = 'Р РЋР С“Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂќР В Р’В°Р В Р’В±Р В РЎвЂР В Р вЂ¦Р В Р’ВµР РЋРІР‚С™' if is_visible else 'Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В°Р В Р’В·Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’ВµР В Р’В·Р В Р’ВµР РЋР вЂљР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂќР В Р’В°Р В Р’В±Р В РЎвЂР В Р вЂ¦Р В Р’ВµР РЋРІР‚С™'
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text=f'👁️ {visibility}', callback_data='adm:toggle:section_reserve_access'))
+    builder.row(InlineKeyboardButton(text=f'РЎР‚РЎСџРІР‚ВР С“Р С—РЎвЂР РЏ {visibility}', callback_data='adm:toggle:section_reserve_access'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -643,7 +694,7 @@ def reserve_admin_keyboard(is_visible: bool):
 
 def backup_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='🗄️ Создать бэкап сейчас', callback_data='adm:backup:run'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚вЂќРІР‚С›Р С—РЎвЂР РЏ Р В Р Р‹Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В±Р РЋР РЉР В РЎвЂќР В Р’В°Р В РЎвЂ” Р РЋР С“Р В Р’ВµР В РІвЂћвЂ“Р РЋРІР‚РЋР В Р’В°Р РЋР С“', callback_data='adm:backup:run'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -652,11 +703,11 @@ def backup_keyboard():
 def broadcast_filters_keyboard():
     builder = InlineKeyboardBuilder()
     for key, title in [
-        ('all', '👥 Все'),
-        ('active', '🟢 С подпиской'),
-        ('inactive', '🔴 Без активной'),
-        ('never', '📭 Никогда не покупали'),
-        ('new', '🆕 Новые'),
+        ('all', 'РЎР‚РЎСџРІР‚ВРўС’ Р В РІР‚в„ўР РЋР С“Р В Р’Вµ'),
+        ('active', 'РЎР‚РЎСџРЎСџРЎС› Р В Р Р‹ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂќР В РЎвЂўР В РІвЂћвЂ“'),
+        ('inactive', 'РЎР‚РЎСџРІР‚СњРўвЂ Р В РІР‚ВР В Р’ВµР В Р’В· Р В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В Р вЂ¦Р В РЎвЂўР В РІвЂћвЂ“'),
+        ('never', 'РЎР‚РЎСџРІР‚СљР’В­ Р В РЎСљР В РЎвЂР В РЎвЂќР В РЎвЂўР В РЎвЂ“Р В РўвЂР В Р’В° Р В Р вЂ¦Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В Р’В°Р В Р’В»Р В РЎвЂ'),
+        ('new', 'РЎР‚РЎСџРІР‚В РІР‚Сћ Р В РЎСљР В РЎвЂўР В Р вЂ Р РЋРІР‚в„–Р В Р’Вµ'),
     ]:
         builder.row(InlineKeyboardButton(text=title, callback_data=f'adm:broadcast:{key}'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
@@ -666,9 +717,9 @@ def broadcast_filters_keyboard():
 
 def updates_admin_keyboard(can_trigger: bool, update_available: bool = False):
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text='🔄 Проверить обновления', callback_data='adm:updates'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СњРІР‚С› Р В РЎСџР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ', callback_data='adm:updates'))
     if can_trigger:
-        builder.row(InlineKeyboardButton(text='🚀 Обновить бота' if update_available else '🚀 Перезапустить обновление', callback_data='adm:updates:run'))
+        builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРЎв„ўР вЂљ Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В±Р В РЎвЂўР РЋРІР‚С™Р В Р’В°' if update_available else 'РЎР‚РЎСџРЎв„ўР вЂљ Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В Р’В·Р В Р’В°Р В РЎвЂ”Р РЋРЎвЂњР РЋР С“Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ', callback_data='adm:updates:run'))
     builder.row(InlineKeyboardButton(text=BACK_LABEL, callback_data='adm:panel'))
     builder.row(InlineKeyboardButton(text=HOME_LABEL, callback_data='nav:home'))
     return builder.as_markup()
@@ -677,6 +728,6 @@ def updates_admin_keyboard(can_trigger: bool, update_available: bool = False):
 def update_notice_keyboard(can_trigger: bool):
     builder = InlineKeyboardBuilder()
     if can_trigger:
-        builder.row(InlineKeyboardButton(text='🚀 Обновить бота', callback_data='adm:updates:run'))
-    builder.row(InlineKeyboardButton(text='📦 Открыть обновления', callback_data='adm:updates'))
+        builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРЎв„ўР вЂљ Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В±Р В РЎвЂўР РЋРІР‚С™Р В Р’В°', callback_data='adm:updates:run'))
+    builder.row(InlineKeyboardButton(text='РЎР‚РЎСџРІР‚СљР’В¦ Р В РЎвЂєР РЋРІР‚С™Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ', callback_data='adm:updates'))
     return builder.as_markup()

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
@@ -133,6 +133,7 @@ class Payment(TimestampMixin, Base):
     payload: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     activation_notice_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="payments")
     tariff: Mapped["Tariff"] = relationship(back_populates="payments")
@@ -184,6 +185,25 @@ class ProvisioningFailureLog(TimestampMixin, Base):
 
     server: Mapped[Optional["Server"]] = relationship(foreign_keys=[server_id])
     subscription: Mapped[Optional["Subscription"]] = relationship(foreign_keys=[subscription_id])
+class PromoCode(TimestampMixin, Base):
+    __tablename__ = "promo_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    discount_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    bonus_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    used_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    first_purchase_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    extend_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    target_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), index=True)
+
+    target_user: Mapped[Optional["User"]] = relationship(foreign_keys=[target_user_id])
 
 
 class FeatureToggle(Base):

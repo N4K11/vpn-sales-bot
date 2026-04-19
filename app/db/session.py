@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -39,9 +39,12 @@ async def init_db() -> None:
             payment_columns = {row[1] for row in (await conn.exec_driver_sql("PRAGMA table_info(payments)")).all()}
             if "activation_notice_sent_at" not in payment_columns:
                 await conn.exec_driver_sql("ALTER TABLE payments ADD COLUMN activation_notice_sent_at DATETIME")
+            if "reminder_sent_at" not in payment_columns:
+                await conn.exec_driver_sql("ALTER TABLE payments ADD COLUMN reminder_sent_at DATETIME")
         elif conn.dialect.name == "postgresql":
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE")
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_role VARCHAR(30) NOT NULL DEFAULT 'user'")
             await conn.exec_driver_sql("UPDATE users SET admin_role = 'admin' WHERE is_admin = TRUE AND admin_role = 'user'")
             await conn.exec_driver_sql("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS expiry_notice_sent_at TIMESTAMPTZ")
             await conn.exec_driver_sql("ALTER TABLE payments ADD COLUMN IF NOT EXISTS activation_notice_sent_at TIMESTAMPTZ")
+            await conn.exec_driver_sql("ALTER TABLE payments ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ")
