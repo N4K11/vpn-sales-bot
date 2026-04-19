@@ -4,6 +4,7 @@ import json
 import logging
 import random
 from math import ceil
+from codecs import decode as codecs_decode
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -116,6 +117,27 @@ CONTENT_PAGE_GROUPS: dict[str, list[str]] = {"texts": USER_TEXT_CONTENT_KEYS, "b
 BUTTON_LABEL_DEFAULTS: dict[str, str] = {label_key: DEFAULT_CONTENT[page_key][1] for label_key, page_key in BUTTON_LABEL_PAGE_KEYS.items()}
 
 
+def repair_mojibake_text(value: str | None) -> str | None:
+    if not value:
+        return value
+    repaired = value
+    for _ in range(3):
+        try:
+            candidate = codecs_decode(repaired.encode('cp1251'), 'utf-8')
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if candidate == repaired:
+            break
+        repaired = candidate
+    return repaired
+
+
+def has_mojibake_text(value: str | None) -> bool:
+    if not value:
+        return False
+    return repair_mojibake_text(value) != value
+
+
 DEFAULT_TARIFFS: list[dict[str, Any]] = [
     {"name": "РЎС‚Р°СЂС‚", "days": 30, "price_rub": Decimal("299.00"), "price_stars": 450, "description": "1 РјРµСЃСЏС† РґРѕСЃС‚СѓРїР°"},
     {"name": "РћРїС‚РёРјСѓРј", "days": 90, "price_rub": Decimal("799.00"), "price_stars": 1190, "description": "3 РјРµСЃСЏС†Р° РґРѕСЃС‚СѓРїР°"},
@@ -143,9 +165,18 @@ class Store:
                 if not page:
                     session.add(ContentPage(key=key, title=title, body=body))
                 else:
-                    page.title = title
+                    repaired_title = repair_mojibake_text(page.title)
+                    repaired_body = repair_mojibake_text(page.body)
+                    if repaired_title != page.title:
+                        page.title = repaired_title
+                    if repaired_body != page.body:
+                        page.body = repaired_body
+                    if not (page.title or '').strip() or has_mojibake_text(page.title):
+                        page.title = title
                     current_body = (page.body or '').strip()
                     if not current_body:
+                        page.body = body
+                    elif has_mojibake_text(current_body):
                         page.body = body
                     elif key in LEGACY_BRANDING_REFRESH_KEYS and 'VPN' in current_body:
                         page.body = body
