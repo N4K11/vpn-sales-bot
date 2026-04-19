@@ -20,14 +20,14 @@ def _repair_text(value: str) -> str:
     return repaired
 
 
-PROFILE_LABEL = '?? ??? ???????'
-BUY_LABEL = '?????????? Air'
-HELP_LABEL = '? ???????'
-REFERRAL_LABEL = '?? ????????'
-TRIAL_LABEL = '?? ??????? ??????'
-ADMIN_LABEL = '?? ?????-??????'
-HOME_LABEL = '?? ??????? ????'
-BACK_LABEL = '? ?????'
+PROFILE_LABEL = '\U0001f464 \u041c\u043e\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c'
+BUY_LABEL = '\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c Air'
+HELP_LABEL = '\u2753 \u0421\u043f\u0440\u0430\u0432\u043a\u0430'
+REFERRAL_LABEL = '\U0001f381 \u0420\u0435\u0444\u0435\u0440\u0430\u043b\u044b'
+TRIAL_LABEL = '\U0001f9ea \u041f\u0440\u043e\u0431\u043d\u044b\u0439 \u0434\u043e\u0441\u0442\u0443\u043f'
+ADMIN_LABEL = '\u2699\ufe0f \u0410\u0434\u043c\u0438\u043d-\u043f\u0430\u043d\u0435\u043b\u044c'
+HOME_LABEL = '\U0001f3e0 \u0413\u043b\u0430\u0432\u043d\u043e\u0435 \u043c\u0435\u043d\u044e'
+BACK_LABEL = '\u25c0 \u041d\u0430\u0437\u0430\u0434'
 
 DEFAULT_USER_BUTTON_LABELS = {
     'nav_profile': PROFILE_LABEL,
@@ -37,32 +37,32 @@ DEFAULT_USER_BUTTON_LABELS = {
     'nav_trial': TRIAL_LABEL,
     'nav_home': HOME_LABEL,
     'nav_back': BACK_LABEL,
-    'help_channel': '?? ?????',
-    'help_support': '?? ?????????',
-    'referral_copy': '?? ??????????? ??????',
-    'trial_activate': '?? ???????????? ??????? ??????',
-    'help_devices': '?? ??? ??????????',
-    'guide_ios': '?? iPhone / iPad',
-    'guide_android': '?? Android',
-    'guide_windows': '?? Windows',
-    'guide_macos': '?? macOS',
-    'pay_stars': '? Telegram Stars',
-    'pay_yookassa': '?? YooKassa',
-    'pay_crypto': '?? Crypto',
-    'pay_balance': '?? ? ???????',
-    'buy_promo': '??? ????????',
-    'buy_promo_clear': '? ?????? ????????',
-    'buy_gift': '?? ???????? ??????',
-    'buy_gift_clear': '? ?????? ???????',
-    'pay_open_invoice': '?? ??????? ? ??????',
-    'subscription_qr': '?? QR ????????',
-    'subscription_extend': '?? ???????? ????????',
-    'reserve_open': '?? ????????? ???????',
-    'reserve_qr': '?? QR ???????',
-    'key_copy': '?? ??????????? ????',
-    'key_qr': '?? QR ?????',
-    'key_replace': '?? ???????? ????',
-    'key_delete': '??? ??????? ????',
+    'help_channel': '\U0001f4e3 \u041a\u0430\u043d\u0430\u043b',
+    'help_support': '\U0001f198 \u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430',
+    'referral_copy': '\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443',
+    'trial_activate': '\U0001f680 \u0410\u043a\u0442\u0438\u0432\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u0440\u043e\u0431\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434',
+    'help_devices': '\U0001f4f1 \u041a\u0430\u043a \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c',
+    'guide_ios': '\U0001f4f1 iPhone / iPad',
+    'guide_android': '\U0001f916 Android',
+    'guide_windows': '\U0001fa9f Windows',
+    'guide_macos': '\U0001f34e macOS',
+    'pay_stars': '\u2b50 Telegram Stars',
+    'pay_yookassa': '\U0001f4b3 YooKassa',
+    'pay_crypto': '\U0001fa99 Crypto',
+    'pay_balance': '\U0001f4b0 \u0421 \u0431\u0430\u043b\u0430\u043d\u0441\u0430',
+    'buy_promo': '\U0001f3f7\ufe0f \u041f\u0440\u043e\u043c\u043e\u043a\u043e\u0434',
+    'buy_promo_clear': '\u274c \u0423\u0431\u0440\u0430\u0442\u044c \u043f\u0440\u043e\u043c\u043e\u043a\u043e\u0434',
+    'buy_gift': '\U0001f381 \u041f\u043e\u0434\u0430\u0440\u0438\u0442\u044c \u0434\u043e\u0441\u0442\u0443\u043f',
+    'buy_gift_clear': '\u274c \u0423\u0431\u0440\u0430\u0442\u044c \u043f\u043e\u0434\u0430\u0440\u043e\u043a',
+    'pay_open_invoice': '\U0001f4b3 \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435',
+    'subscription_qr': '\U0001f4f7 QR \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438',
+    'subscription_extend': '\U0001f552 \u041f\u0440\u043e\u0434\u043b\u0438\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443',
+    'reserve_open': '\U0001f30d \u0420\u0435\u0437\u0435\u0440\u0432\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442',
+    'reserve_qr': '\U0001f4f7 QR \u0440\u0435\u0437\u0435\u0440\u0432\u0430',
+    'key_copy': '\U0001f4cb \u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043a\u043b\u044e\u0447',
+    'key_qr': '\U0001f4f7 QR \u043a\u043b\u044e\u0447\u0430',
+    'key_replace': '\u267b\ufe0f \u0417\u0430\u043c\u0435\u043d\u0438\u0442\u044c \u043a\u043b\u044e\u0447',
+    'key_delete': '\U0001f5d1\ufe0f \u0423\u0434\u0430\u043b\u0438\u0442\u044c \u043a\u043b\u044e\u0447',
 }
 
 
@@ -87,7 +87,7 @@ def build_main_menu(is_admin: bool, show_referral: bool, show_trial: bool, label
         rows.append([KeyboardButton(text=lb['nav_trial'])])
     if is_admin:
         rows.append([KeyboardButton(text=ADMIN_LABEL)])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='???????? ??????')
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, input_field_placeholder='\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0430\u0437\u0434\u0435\u043b')
 
 
 def _append_copy_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]]) -> None:
@@ -114,7 +114,7 @@ def _copy_link_label(value: str, limit: int = 44) -> str:
             display = f'{display}?...'
     if len(display) <= limit:
         return display
-    return display[: limit - 1] + '?'
+    return display[: limit - 1] + '\u2026'
 
 def _append_compact_action_rows(builder: InlineKeyboardBuilder, items: list[tuple[str, str]], width: int = 2) -> None:
     row: list[InlineKeyboardButton] = []
@@ -159,10 +159,10 @@ def profile_inline_keyboard(subscription_actions: list[tuple[str, str]], is_admi
     if total_pages > 1:
         pagination: list[InlineKeyboardButton] = []
         if page > 1:
-            pagination.append(InlineKeyboardButton(text='?', callback_data=f'nav:profile:{page - 1}'))
+            pagination.append(InlineKeyboardButton(text='\u2190', callback_data=f'nav:profile:{page - 1}'))
         pagination.append(InlineKeyboardButton(text=f'{page}/{total_pages}', callback_data='noop'))
         if page < total_pages:
-            pagination.append(InlineKeyboardButton(text='?', callback_data=f'nav:profile:{page + 1}'))
+            pagination.append(InlineKeyboardButton(text='\u2192', callback_data=f'nav:profile:{page + 1}'))
         builder.row(*pagination)
     builder.row(InlineKeyboardButton(text=lb['nav_back'], callback_data='nav:home'))
     return builder.as_markup()

@@ -153,6 +153,15 @@ def has_mojibake_text(value: str | None) -> bool:
     return repair_mojibake_text(value) != value
 
 
+def is_questionmark_garbage(value: str | None) -> bool:
+    if not value:
+        return False
+    stripped = value.strip()
+    if not stripped or '?' not in stripped:
+        return False
+    return stripped.count('?') >= max(2, len(stripped) // 4)
+
+
 DEFAULT_TARIFFS: list[dict[str, Any]] = [
     {"name": "РЎС‚Р°СЂС‚", "days": 30, "price_rub": Decimal("299.00"), "price_stars": 450, "description": "1 РјРµСЃСЏС† РґРѕСЃС‚СѓРїР°"},
     {"name": "РћРїС‚РёРјСѓРј", "days": 90, "price_rub": Decimal("799.00"), "price_stars": 1190, "description": "3 РјРµСЃСЏС†Р° РґРѕСЃС‚СѓРїР°"},
@@ -186,12 +195,12 @@ class Store:
                         page.title = repaired_title
                     if repaired_body != page.body:
                         page.body = repaired_body
-                    if not (page.title or '').strip() or has_mojibake_text(page.title):
+                    if not (page.title or '').strip() or has_mojibake_text(page.title) or (key in USER_BUTTON_CONTENT_KEYS and is_questionmark_garbage(page.title)):
                         page.title = title
                     current_body = (page.body or '').strip()
                     if not current_body:
                         page.body = body
-                    elif has_mojibake_text(current_body):
+                    elif has_mojibake_text(current_body) or (key in USER_BUTTON_CONTENT_KEYS and is_questionmark_garbage(current_body)):
                         page.body = body
                     elif key in LEGACY_BRANDING_REFRESH_KEYS and 'VPN' in current_body:
                         page.body = body
