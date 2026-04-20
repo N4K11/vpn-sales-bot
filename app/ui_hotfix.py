@@ -1,336 +1,570 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from aiogram.types import InlineKeyboardButton, LinkPreviewOptions, Message, ReplyKeyboardRemove
+from datetime import datetime
+from decimal import Decimal
+from uuid import uuid4
+
+from aiogram.types import CallbackQuery, InlineKeyboardButton, LinkPreviewOptions, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import app.bot.keyboards as kb
 from app.bot.controller import BotController
+from app.bot.states import PromoCodeState
 from app.config import settings
 from app.utils import format_money
 
-BROKEN_MARKERS = ("Р ", "РЎ", "Ð", "Ñ", "вЂ", "�")
+BROKEN_MARKERS = ("?", "N", "Р ", "РЎ", "РІР‚", "Гђ", "Г‘", "пїЅ")
 
 
 def repair_text(value):
     if value is None:
         return value
-    repaired = str(value)
+    text = str(value)
     for _ in range(3):
         try:
-            candidate = repaired.encode("cp1251").decode("utf-8")
+            candidate = text.encode("cp1251").decode("utf-8")
         except (UnicodeEncodeError, UnicodeDecodeError):
             break
-        if candidate == repaired:
+        if candidate == text:
             break
-        repaired = candidate
-    return repaired
+        text = candidate
+    return text
 
 
-def looks_broken_text(value: str | None) -> bool:
-    if not value:
+def looks_broken_text(value) -> bool:
+    if value is None:
         return False
     text = str(value).strip()
     if not text:
         return False
     if any(marker in text for marker in BROKEN_MARKERS):
         return True
-    return text.count("?") >= max(3, len(text) // 3)
+    letters = [ch for ch in text if ch.isalpha()]
+    return bool(letters) and text.count("?") >= max(3, len(letters) // 3)
 
 
-def clean_button_labels(labels: dict[str, str] | None = None) -> dict[str, str]:
-    merged = kb.DEFAULT_USER_BUTTON_LABELS.copy()
-    for key, value in (labels or {}).items():
-        cleaned = (repair_text(value) or "").strip() if value else ""
-        if cleaned and not looks_broken_text(cleaned):
-            merged[key] = cleaned
-    return merged
+def safe_text(value, fallback: str = "") -> str:
+    text = repair_text(value or "")
+    return fallback if (not text or looks_broken_text(text)) else text
 
 
-def _body_or_fallback(page, fallback: str) -> str:
-    body = (getattr(page, "body", "") or "").strip() if page else ""
-    body = repair_text(body) if body else ""
-    if not body or looks_broken_text(body):
-        return fallback
-    return body
+def display_user(user) -> str:
+    username = (getattr(user, "username", "") or "").strip()
+    if username:
+        return f"@{username}"
+    full_name = (getattr(user, "full_name", "") or "").strip()
+    if full_name:
+        return full_name
+    telegram_id = getattr(user, "telegram_id", None)
+    return str(telegram_id) if telegram_id else "пользователь"
 
 
-async def _patched_send_inline_screen(self: BotController, message: Message, text: str, reply_markup) -> None:
-    cleanup = await message.answer("\u2060", reply_markup=ReplyKeyboardRemove())
-    try:
-        await cleanup.delete()
-    except Exception:
-        pass
-    await message.answer(
-        self._repair_ui_text(repair_text(text)) or "",
-        reply_markup=reply_markup,
-        link_preview_options=LinkPreviewOptions(is_disabled=True),
-    )
+def payment_title(method: str) -> str:
+    return {
+        "balance": "Баланс",
+        "stars": "Stars",
+        "yookassa": "YooKassa",
+        "crypto": "Crypto",
+    }.get((method or "").strip().lower(), method or "Оплата")
 
 
-async def _patched_ui_snapshot(self: BotController) -> dict:
-    snapshot = await _ORIGINAL_UI_SNAPSHOT(self)
-    result = dict(snapshot or {})
-    result["button_labels"] = clean_button_labels(result.get("button_labels") or {})
-    return result
-
-
-async def _patched_user_button_labels(self: BotController, ui: dict | None = None) -> dict[str, str]:
-    ui = ui or await self._ui_snapshot()
-    return clean_button_labels((ui or {}).get("button_labels") or {})
-
-
-def _patched_admin_role_title(self: BotController, role: str) -> str:
+def admin_role_title(role: str) -> str:
     return {
         "owner": "Владелец",
         "admin": "Администратор",
         "support": "Поддержка",
         "finance": "Финансы",
-        "ops": "Операции",
+        "ops": "Серверы",
         "user": "Пользователь",
-    }.get((role or "").strip().lower(), "Пользователь")
+    }.get((role or "user").strip().lower(), role or "Пользователь")
 
 
-def _patched_payment_method_title(self: BotController, method: str) -> str:
-    return {
-        "stars": "Telegram Stars",
-        "yookassa": "YooKassa",
-        "crypto": "Crypto",
-        "balance": "Баланс аккаунта",
-    }.get(method, method)
+def tariff_title(tariff) -> str:
+    tariff_id = getattr(tariff, "id", "")
+    return safe_text(getattr(tariff, "name", None), f"Тариф #{tariff_id}")
 
 
-def _patched_tariff_upsell_lines(self: BotController, current_tariff, tariffs) -> list[str]:
-    if not current_tariff or not tariffs:
-        return []
-    candidates = [item for item in tariffs if getattr(item, "days", 0) > getattr(current_tariff, "days", 0)]
-    if not candidates:
-        return []
-    target = sorted(candidates, key=lambda item: getattr(item, "days", 0))[0]
-    return ["", f"Подсказка: {target.name} обычно выгоднее по цене за день и даёт больше запаса по сроку."]
+def server_title(server) -> str:
+    server_id = getattr(server, "id", "")
+    return safe_text(getattr(server, "name", None), f"Сервер #{server_id}")
 
 
-def _patched_render_tariff_lines(self: BotController, tariffs) -> list[str]:
-    lines: list[str] = []
-    starter = self._starter_tariff(tariffs)
-    popular = self._popular_tariff(tariffs)
-    best_value = self._best_value_tariff(tariffs)
-    for tariff in tariffs:
-        badges: list[str] = []
-        if starter and tariff.id == starter.id:
-            badges.append("старт")
-        if popular and tariff.id == popular.id:
-            badges.append("популярный")
-        if best_value and tariff.id == best_value.id:
-            badges.append("выгодный")
-        badge_suffix = f" • {' • '.join(badges)}" if badges else ""
-        rub = repair_text(format_money(getattr(tariff, "price_rub", 0)))
-        stars = int(getattr(tariff, "price_stars", 0) or 0)
-        stars_suffix = f" / {stars} ⭐" if stars > 0 else ""
-        lines.append(f"• {tariff.name} — {tariff.days} дн. — {rub}{stars_suffix}{badge_suffix}")
-    return lines
+_ORIGINAL_SAFE_EDIT = BotController._safe_edit_message_text
+_ORIGINAL_SAFE_ANSWER = BotController._safe_answer_callback
+_ORIGINAL_HANDLE_NAV = BotController.handle_nav_callbacks
+_ORIGINAL_HANDLE_BUY = BotController.handle_buy_callbacks
+_ORIGINAL_HANDLE_ADMIN = BotController.handle_admin_callbacks
+_ORIGINAL_UI_SNAPSHOT = BotController._ui_snapshot
+_ORIGINAL_USER_BUTTON_LABELS = BotController._user_button_labels
 
 
-async def _patched_render_home_text(self: BotController) -> str:
-    page = await self.store.get_content("main")
-    tariffs = await self.store.list_tariffs(only_active=True)
-    intro = _body_or_fallback(page, f"{self._brand_name()} — быстрый доступ к профилю, оплате и подключению.")
-    lines = [
-        f"{self._brand_name()} | личный кабинет",
-        "",
-        intro,
-        "",
-        "Что внутри:",
-        "• профиль и действующие доступы;",
-        "• одна ссылка доступа на все включённые серверы;",
-        "• продление, резервный кабинет и инструкции по подключению.",
-    ]
-    if tariffs:
-        lines.extend(["", "Тарифы:"])
-        lines.extend(self._render_tariff_lines(tariffs))
-    lines.extend(["", "Выберите раздел ниже."])
-    return "\n".join(lines)
+async def _patched_safe_edit_message_text(self, message, text, reply_markup=None):
+    await _ORIGINAL_SAFE_EDIT(self, message, repair_text(text), reply_markup)
 
 
-async def _patched_render_buy_text(self: BotController, tariffs) -> str:
+async def _patched_safe_answer_callback(self, callback, text=None, show_alert: bool = False):
+    await _ORIGINAL_SAFE_ANSWER(self, callback, repair_text(text), show_alert)
+
+
+async def _patched_send_inline_screen(self, message: Message, text: str, reply_markup) -> None:
+    await message.answer(repair_text(text), reply_markup=reply_markup, link_preview_options=LinkPreviewOptions(is_disabled=True))
+
+
+async def _patched_ui_snapshot(self):
+    ui = await _ORIGINAL_UI_SNAPSHOT(self)
+    pages = ui.get("content_pages") or {}
+    fixed_pages = {}
+    for key, page in pages.items():
+        if not page:
+            continue
+        body = repair_text(getattr(page, "body", "") or "")
+        if body and not looks_broken_text(body):
+            fixed_pages[key] = page
+            continue
+        fallback = type("ContentPageFallback", (), {"key": key, "body": "", "updated_at": None})()
+        fixed_pages[key] = fallback
+    ui["content_pages"] = fixed_pages
+    labels = ui.get("button_labels") or {}
+    ui["button_labels"] = {k: repair_text(v) for k, v in labels.items()}
+    return ui
+
+
+async def _patched_user_button_labels(self, ui: dict | None = None):
+    labels = dict(kb.DEFAULT_BUTTON_LABELS)
+    snapshot = ui or await self._ui_snapshot()
+    for key, value in (snapshot.get("button_labels") or {}).items():
+        cleaned = safe_text(value)
+        if cleaned:
+            labels[key] = cleaned
+    return labels
+
+
+async def _render_home_text(self):
+    page = await self.store.get_content("home")
+    body = safe_text(getattr(page, "body", None))
+    if body:
+        return body
+    return "?? MyAir\n\nВыберите нужный раздел ниже."
+
+
+async def _render_buy_text(self, tariffs):
     page = await self.store.get_content("buy")
-    intro = _body_or_fallback(page, "Выберите тариф, а затем удобный способ оплаты.")
-    methods = await self._visible_payment_methods()
-    method_titles = [self._payment_method_title(method) for method in methods]
-    lines = [
-        "Подключить Air",
-        "",
-        intro,
-        "",
-    ]
-    if method_titles:
-        lines.append(f"Способы оплаты: {', '.join(method_titles)}")
-    if tariffs:
-        lines.extend(["", "Доступные тарифы:"])
-        lines.extend(self._render_tariff_lines(tariffs))
+    body = safe_text(getattr(page, "body", None))
+    if body:
+        return body
+    if not tariffs:
+        return "Подключить Air сейчас нельзя: нет доступных тарифов."
+    lines = ["Подключить Air", "", "Выберите тариф, затем удобный способ оплаты.", ""]
+    lines.append("Доступные планы:")
+    for tariff in tariffs:
+        lines.append(f"• {tariff_title(tariff)} — {int(getattr(tariff, 'days', 0) or 0)} дн.")
+    lines.append("")
+    lines.append("Промокод можно применить отдельной кнопкой ниже.")
     return "\n".join(lines)
 
 
-async def _patched_render_help_text(self: BotController) -> str:
+async def _render_help_text(self):
     page = await self.store.get_content("help")
-    intro = _body_or_fallback(page, "Здесь собраны быстрые ответы, канал и поддержка.")
-    lines = [
-        "Справка Air",
-        "",
-        intro,
-        "",
-        "Что можно сделать внутри бота:",
-        "• открыть профиль и свои доступы;",
-        "• скопировать ссылку доступа;",
-        "• продлить срок или открыть резервный кабинет;",
-        "• посмотреть короткие инструкции по подключению.",
-    ]
-    return "\n".join(lines)
+    body = safe_text(getattr(page, "body", None))
+    if body:
+        return body
+    return "Подключение и поддержка\n\nЗдесь можно открыть канал и обратиться в поддержку."
 
-
-async def _patched_render_device_guides_menu(self: BotController) -> str:
-    page = await self.store.get_content("devices_menu")
-    intro = _body_or_fallback(page, "Выберите устройство и откройте короткую инструкцию по подключению.")
-    return "\n".join(["Как подключить Air", "", intro])
-
-
-async def _patched_render_device_guide(self: BotController, platform_key: str) -> str:
-    titles = {
-        "ios": "iPhone / iPad",
-        "android": "Android",
-        "windows": "Windows",
-        "macos": "macOS",
-    }
-    content_keys = {
-        "ios": "guide_ios",
-        "android": "guide_android",
-        "windows": "guide_windows",
-        "macos": "guide_macos",
-    }
-    defaults = {
-        "ios": "1. Установите совместимый клиент.\n2. Скопируйте ссылку доступа в профиле.\n3. Импортируйте ссылку как Subscription URL.\n4. Обновите профиль в клиенте.",
-        "android": "1. Установите совместимый клиент.\n2. Скопируйте ссылку доступа в профиле.\n3. Добавьте её как Subscription URL.\n4. Выберите нужный сервер и подключитесь.",
-        "windows": "1. Откройте клиент на Windows.\n2. Скопируйте ссылку доступа в профиле.\n3. Импортируйте её как Subscription URL.\n4. Обновите список серверов и подключитесь.",
-        "macos": "1. Откройте клиент на macOS.\n2. Скопируйте ссылку доступа в профиле.\n3. Импортируйте её как Subscription URL.\n4. Обновите список серверов и подключитесь.",
-    }
-    title = titles.get(platform_key, "Устройство")
-    page = await self.store.get_content(content_keys.get(platform_key, "")) if platform_key in content_keys else None
-    body = _body_or_fallback(page, defaults.get(platform_key, "Откройте профиль и импортируйте ссылку доступа в клиент."))
-    return "\n".join([title, "", body])
-
-
-async def _patched_render_referral_text(self: BotController, user) -> str:
+async def _render_referral_text(self, user):
     page = await self.store.get_content("referral")
-    ui = await self._ui_snapshot()
-    intro = _body_or_fallback(page, "Приглашайте друзей и получайте бонусы на внутренний баланс.")
-    referrals = getattr(user, "referrals", None) or []
-    invite_link = self._invite_link(user)
-    balance = repair_text(format_money(getattr(user, "balance", 0)))
-    percent = ui.get("referral_percent", settings.referral_percent)
+    body = safe_text(getattr(page, "body", None))
+    invite_link = self._invite_link(user.telegram_id)
+    if body:
+        return f"{body}\n\nВаша ссылка:\n{invite_link}"
+    percent = int(await self.store.get_int_setting("referral_percent", 0) or 0)
+    referrals = getattr(user, "referrals", []) or []
     return "\n".join([
         "Партнёрская программа",
         "",
-        intro,
-        "",
-        f"Вознаграждение: {percent}% с каждой оплаты реферала",
+        f"Вознаграждение: {percent}% с каждой оплаты реферала.",
         f"Приглашено пользователей: {len(referrals)}",
-        f"Накоплено бонусами: {balance}",
+        f"Накоплено бонусами: {format_money(getattr(user, 'bonus_balance', Decimal('0')) or Decimal('0'))}",
         "",
-        "Ваша персональная ссылка:",
+        "Ваша ссылка:",
         invite_link,
     ])
 
 
-async def _patched_render_trial_text(self: BotController, user) -> str:
+async def _render_trial_text(self, user):
     page = await self.store.get_content("trial")
-    ui = await self._ui_snapshot()
-    intro = _body_or_fallback(page, "Здесь можно активировать тестовый доступ, если он открыт администратором.")
-    trial_days = int(ui.get("trial_days") or settings.trial_default_days)
-    trial_servers = await self.store.list_balanced_servers(trial_only=True)
-    lines = [
-        "Тестовый доступ",
-        "",
-        intro,
-        "",
-        f"Срок доступа: {trial_days} дн.",
-        f"Доступно trial-серверов: {len(trial_servers)}",
-        "",
-    ]
-    if getattr(user, "trial_claimed", False):
-        lines.append("Пробный доступ уже был использован для этого аккаунта.")
-    elif not trial_servers:
-        lines.append("Сейчас нет серверов, доступных для trial.")
+    body = safe_text(getattr(page, "body", None))
+    if body:
+        return body
+    days = int(await self.store.get_int_setting("trial_days", 0) or 0)
+    if getattr(user, "trial_used", False):
+        status = "Пробный доступ уже был использован для этого аккаунта."
     else:
-        lines.append("Нажмите кнопку ниже, чтобы активировать пробный период.")
-    return "\n".join(lines)
+        status = "Если доступ включён, его можно активировать кнопкой ниже."
+    return f"Пробный доступ\n\nСрок: {days} дн.\n\n{status}"
 
 
-def _patched_updates_admin_keyboard(can_trigger: bool, update_available: bool = False):
+async def _admin_panel_text(self, actor_role: str = "owner") -> str:
+    metrics = await self.store.get_admin_metrics()
+    return "\n".join([
+        "?? Центр управления",
+        "",
+        "Пульс системы:",
+        f"?? Пользователей: {metrics.get('users', 0)}",
+        f"?? Активный доступ: {metrics.get('active_users', 0)}",
+        f"? Ожидающие оплаты: {metrics.get('pending_payments', 0)}",
+        f"?? Серверов в базе: {metrics.get('servers', 0)}",
+        f"?? Администраторов: {metrics.get('admins', 0)}",
+        f"?? Сбоев за 3 часа: {metrics.get('recent_provisioning_failures', 0)}",
+        f"?? Версия: {getattr(settings, 'app_version', 'dev')}",
+        "",
+        f"Ваш уровень доступа: {admin_role_title(actor_role)}",
+    ])
+
+
+def _subscription_lines(subscription) -> list[str]:
+    now = datetime.utcnow()
+    ends_at = getattr(subscription, "ends_at", None)
+    is_active = bool(getattr(subscription, "status", "") == "active" and ends_at and ends_at > now)
+    active_keys = [key for key in (getattr(subscription, "vpn_keys", []) or []) if getattr(key, "status", "") != "expired"]
+    archive_keys = [key for key in (getattr(subscription, "vpn_keys", []) or []) if getattr(key, "status", "") == "expired"]
+    servers = []
+    for key in getattr(subscription, "vpn_keys", []) or []:
+        server = getattr(key, "server", None)
+        if server:
+            servers.append(server_title(server))
+    seen = []
+    for name in servers:
+        if name not in seen:
+            seen.append(name)
+    icon = "??" if is_active else "??"
+    title = safe_text(getattr(subscription, "title", None), "Подписка")
+    lines = [f"{icon} {title}"]
+    if ends_at:
+        lines.append(f"? До {ends_at:%d.%m.%Y %H:%M}")
+    lines.append(f"?? Ключи: {len(active_keys)} активных / {len(archive_keys)} архивных")
+    if seen:
+        lines.append(f"?? Серверы: {', '.join(seen)}")
+    lines.append(f"?? Статус: {'Активна' if is_active else 'Истекла'}")
+    return lines
+
+
+async def _send_profile_screen(self, target, tg_user, page: int = 1):
+    user = await self.store.get_user_summary(tg_user.id)
+    if not user:
+        text = "Профиль пока недоступен. Попробуйте ещё раз через минуту."
+        markup = kb.back_keyboard("nav:home", labels=await self._user_button_labels())
+        if isinstance(target, Message):
+            await self._send_inline_screen(target, text, markup)
+        else:
+            await self._safe_edit_message_text(target.message, text, markup)
+            await self._safe_answer_callback(target)
+        return
+    subscriptions = self._profile_subscriptions(user)
+    total_pages = max(1, len(subscriptions))
+    page = min(max(page, 1), total_pages)
+    current = subscriptions[page - 1:page]
+    lines = ["?? Мой профиль", "", f"Пользователь: {display_user(user)}", f"Баланс: {format_money(getattr(user, 'balance', Decimal('0')) or Decimal('0'))}"]
+    if current:
+        lines.extend(["", *sum((_subscription_lines(item) + [""] for item in current), [])])
+    else:
+        lines.extend(["", "Активных подписок пока нет."])
+    actions = self._subscription_actions(current, back_mode="profile")
+    markup = kb.profile_inline_keyboard(actions, bool(getattr(user, 'is_admin', False)), True, True, labels=await self._user_button_labels(), page=page, total_pages=total_pages)
+    text = "\n".join(line for line in lines if line is not None).strip()
+    if isinstance(target, Message):
+        await self._send_inline_screen(target, text, markup)
+    else:
+        await self._safe_edit_message_text(target.message, text, markup)
+        await self._safe_answer_callback(target)
+
+
+async def _patched_show_profile(self, message: Message, state):
+    await state.clear()
+    user = await self.store.get_or_create_user(message.from_user)
+    if await self._deny_blocked_message(message, user):
+        return
+    await _send_profile_screen(self, message, message.from_user, 1)
+
+
+async def _patched_show_buy(self, message: Message, state):
+    await state.clear()
+    user = await self.store.get_or_create_user(message.from_user)
+    if await self._deny_blocked_message(message, user):
+        return
+    tariffs = await self.store.list_tariffs(only_active=True)
+    labels = await self._user_button_labels()
+    await self._send_inline_screen(message, await self._render_buy_text(tariffs), kb.tariffs_keyboard(tariffs, labels=labels))
+
+
+async def _patched_show_referrals(self, message: Message, state):
+    await state.clear()
+    user = await self.store.get_or_create_user(message.from_user)
+    if await self._deny_blocked_message(message, user):
+        return
+    await self._send_inline_screen(message, await self._render_referral_text(user), kb.referral_inline_keyboard(self._invite_link(user.telegram_id), user.is_admin, True, True, labels=await self._user_button_labels()))
+
+
+async def _patched_show_admin_panel_message(self, message: Message, state):
+    await state.clear()
+    actor = await self._admin_actor(message.from_user)
+    role = self._admin_role_value(actor)
+    if role == "user":
+        await message.answer("Доступ к админ-панели закрыт.")
+        return
+    await self._send_inline_screen(message, await self._admin_panel_text(role), kb.admin_panel_keyboard(role))
+
+
+def _tariffs_keyboard_clean(tariffs, extend_subscription_id: int | None = None, back_callback: str = "nav:home", labels: dict | None = None, promo_applied: str | None = None):
+    lb = dict(kb.DEFAULT_BUTTON_LABELS)
+    lb.update(labels or {})
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="🧾 Открыть журнал обновлений", callback_data="adm:updates"))
-    if can_trigger:
-        builder.row(InlineKeyboardButton(text=("♻️ Установить обновление" if update_available else "🔎 Проверить обновления"), callback_data="adm:updates:run"))
-    builder.row(InlineKeyboardButton(text=kb.BACK_LABEL, callback_data="adm:panel"))
+    for tariff in tariffs:
+        callback = f"buy:tariff:{tariff.id}"
+        if extend_subscription_id:
+            callback = f"buy:tariff:{tariff.id}:extend:{extend_subscription_id}"
+        builder.row(InlineKeyboardButton(text=f"?? {tariff_title(tariff)} • {int(getattr(tariff, 'days', 0) or 0)} дн.", callback_data=callback))
+    promo_callback = "buy:promo:clear" if promo_applied else "buy:promo"
+    promo_text = f"? {promo_applied}" if promo_applied else lb.get("buy_promo", "?? Промокод")
+    builder.row(InlineKeyboardButton(text=promo_text, callback_data=promo_callback))
+    builder.row(InlineKeyboardButton(text=lb.get("nav_back", kb.BACK_LABEL), callback_data=back_callback))
+    if back_callback != "nav:home":
+        builder.row(InlineKeyboardButton(text=lb.get("nav_home", kb.HOME_LABEL), callback_data="nav:home"))
+    return builder.as_markup()
+
+
+def _payment_methods_keyboard_clean(tariff_id: int, methods: list[str], extend_subscription_id: int | None = None, back_callback: str = "buy:back", labels: dict | None = None, gift_active: bool = False):
+    lb = dict(kb.DEFAULT_BUTTON_LABELS)
+    lb.update(labels or {})
+    builder = InlineKeyboardBuilder()
+    label_map = {
+        "balance": lb.get("pay_balance", "?? Баланс"),
+        "stars": lb.get("pay_stars", "? Stars"),
+        "yookassa": lb.get("pay_yookassa", "?? YooKassa"),
+        "crypto": lb.get("pay_crypto", "?? Crypto"),
+    }
+    for method in methods:
+        callback = f"buy:method:{method}:{tariff_id}"
+        if extend_subscription_id:
+            callback = f"buy:method:{method}:{tariff_id}:extend:{extend_subscription_id}"
+        builder.row(InlineKeyboardButton(text=label_map.get(method, payment_title(method)), callback_data=callback))
+    builder.row(InlineKeyboardButton(text=lb.get("nav_back", kb.BACK_LABEL), callback_data=back_callback))
+    builder.row(InlineKeyboardButton(text=lb.get("nav_home", kb.HOME_LABEL), callback_data="nav:home"))
+    return builder.as_markup()
+
+
+def _admin_panel_keyboard_clean(role: str = "owner"):
+    builder = InlineKeyboardBuilder()
+    if role in {"owner", "admin", "support", "finance"}:
+        builder.row(InlineKeyboardButton(text="?? Пользователи", callback_data="adm:users:filters"))
+    if role in {"owner", "admin", "ops"}:
+        builder.row(InlineKeyboardButton(text="?? Серверы", callback_data="adm:servers"))
+    if role in {"owner", "admin", "finance"}:
+        builder.row(InlineKeyboardButton(text="?? Тарифы", callback_data="adm:tariffs"), InlineKeyboardButton(text="?? Оплаты", callback_data="adm:payments"))
+        builder.row(InlineKeyboardButton(text="?? Финансы", callback_data="adm:finance"), InlineKeyboardButton(text="?? Аналитика", callback_data="adm:analytics"))
+    if role in {"owner", "admin", "support"}:
+        builder.row(InlineKeyboardButton(text="?? Тексты", callback_data="adm:texts"))
+        builder.row(InlineKeyboardButton(text="?? Промокоды", callback_data="adm:promos"))
+        builder.row(InlineKeyboardButton(text="?? Инструкции", callback_data="adm:guide"), InlineKeyboardButton(text="?? Резерв", callback_data="adm:reserve"))
+    if role in {"owner", "admin"}:
+        builder.row(InlineKeyboardButton(text="?? Рефералы", callback_data="adm:referral"), InlineKeyboardButton(text="?? Пробный доступ", callback_data="adm:trial"))
+        builder.row(InlineKeyboardButton(text="?? Рассылка", callback_data="adm:broadcast"), InlineKeyboardButton(text="?? Бэкапы", callback_data="adm:backup"))
+    if role == "owner":
+        builder.row(InlineKeyboardButton(text="?? Роли", callback_data="adm:roles"), InlineKeyboardButton(text="?? Журнал", callback_data="adm:audit"))
+    builder.row(InlineKeyboardButton(text="?? Обновления", callback_data="adm:updates"))
     builder.row(InlineKeyboardButton(text=kb.HOME_LABEL, callback_data="nav:home"))
     return builder.as_markup()
 
 
-def _patched_update_notice_keyboard(can_trigger: bool):
-    builder = InlineKeyboardBuilder()
-    if can_trigger:
-        builder.row(InlineKeyboardButton(text="♻️ Обновить бота", callback_data="adm:updates:run"))
-    builder.row(InlineKeyboardButton(text="🧾 Открыть раздел обновлений", callback_data="adm:updates"))
-    return builder.as_markup()
+async def _show_tariff_checkout(self, callback: CallbackQuery, state, tariff_id: int, extend_subscription_id: int | None = None):
+    data = await state.get_data()
+    promo_code = str(data.get("buy_promo_code") or "").strip()
+    promo_discount_percent = int(data.get("buy_promo_discount_percent") or 0)
+    promo_bonus_days = int(data.get("buy_promo_bonus_days") or 0)
+    tariff = await self.store.get_tariff(tariff_id)
+    user = await self.store.get_user_by_telegram_id(callback.from_user.id)
+    if not tariff or not user:
+        await self._safe_answer_callback(callback, "Не удалось открыть тариф.", show_alert=True)
+        return
+    target_subscription = await self.store.get_subscription_details(extend_subscription_id) if extend_subscription_id else None
+    renewal_discount_percent = await self.store.get_int_setting("renewal_discount_percent", 0) if target_subscription else 0
+    price_rub, price_stars, discount_lines = self._discounted_tariff_prices(tariff, is_extension=bool(target_subscription), promo_discount_percent=promo_discount_percent, renewal_discount_percent=renewal_discount_percent)
+    methods = await self._payment_methods_for_user(user, tariff, price_rub=price_rub, price_stars=price_stars)
+    if not methods:
+        await self._safe_edit_message_text(callback.message, "Сейчас недоступен ни один способ оплаты для этого тарифа.", kb.back_keyboard("buy:back", labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    total_days = int(getattr(tariff, "days", 0) or 0) + promo_bonus_days
+    lines = ["Счёт готов", "", f"Тариф: {tariff_title(tariff)}", f"Срок доступа: {total_days} дн.", f"Стоимость в рублях: {format_money(price_rub)}", f"Стоимость в Stars: {format_money(price_stars, 'XTR')}"]
+    balance = getattr(user, "balance", Decimal("0")) or Decimal("0")
+    lines.append(f"Баланс аккаунта: {format_money(balance)}")
+    if promo_code:
+        lines.append(f"Промокод: {promo_code}")
+    if discount_lines:
+        lines.extend(["", *[repair_text(line) for line in discount_lines]])
+    lines.extend(["", "Выберите способ оплаты ниже."])
+    back_callback = f"buy:extend:{extend_subscription_id}" if extend_subscription_id else "buy:back"
+    await state.update_data(buy_selected_tariff_id=tariff.id, buy_extend_subscription_id=extend_subscription_id or 0)
+    await self._safe_edit_message_text(callback.message, "\n".join(lines), kb.payment_methods_keyboard(tariff.id, methods, extend_subscription_id=extend_subscription_id, back_callback=back_callback, labels=await self._user_button_labels()))
+    await self._safe_answer_callback(callback)
+
+
+async def _patched_receive_promo_code(self, message: Message, state):
+    code = (message.text or "").strip()
+    data = await state.get_data()
+    tariff_id = int(data.get("buy_selected_tariff_id") or 0)
+    extend_subscription_id = int(data.get("buy_extend_subscription_id") or 0)
+    user = await self.store.get_user_by_telegram_id(message.from_user.id)
+    if not user or not code:
+        await state.clear()
+        await message.answer("Промокод не найден.")
+        return
+    promo, error = await self._resolve_promo(code, user.id, bool(extend_subscription_id))
+    if error or not promo:
+        await state.set_state(PromoCodeState.waiting_code)
+        await message.answer(error or "Промокод не найден.", reply_markup=kb.back_keyboard(f"buy:tariff:{tariff_id}" if tariff_id else "buy:back", labels=await self._user_button_labels()))
+        return
+    await state.update_data(buy_promo_code=code, buy_promo_title=safe_text(getattr(promo, "title", None), code), buy_promo_discount_percent=int(getattr(promo, "discount_percent", 0) or 0), buy_promo_bonus_days=int(getattr(promo, "bonus_days", 0) or 0), buy_promo_id=int(getattr(promo, "id", 0) or 0))
+    await state.set_state(None)
+    await message.answer(f"Промокод {code} применён.")
+    if tariff_id:
+        fake = type("FakeCallback", (), {"from_user": message.from_user, "message": message, "data": f"buy:tariff:{tariff_id}"})()
+        await _show_tariff_checkout(self, fake, state, tariff_id, extend_subscription_id or None)
+
+
+async def _patched_handle_buy_callbacks(self, callback: CallbackQuery, state):
+    data = callback.data or ""
+    if data == "buy:back":
+        tariffs = await self.store.list_tariffs(only_active=True)
+        await self._safe_edit_message_text(callback.message, await self._render_buy_text(tariffs), kb.tariffs_keyboard(tariffs, labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    if data == "buy:promo":
+        await state.set_state(PromoCodeState.waiting_code)
+        await self._safe_edit_message_text(callback.message, "Введите промокод одним сообщением.\n\nЕсли промокод подходит, скидка применится к выбранному тарифу.", kb.back_keyboard("buy:back", labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    if data == "buy:promo:clear":
+        await state.update_data(buy_promo_code=None, buy_promo_title=None, buy_promo_discount_percent=0, buy_promo_bonus_days=0, buy_promo_id=0)
+        tariffs = await self.store.list_tariffs(only_active=True)
+        await self._safe_edit_message_text(callback.message, await self._render_buy_text(tariffs), kb.tariffs_keyboard(tariffs, labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    parts = data.split(":")
+    if len(parts) >= 3 and parts[1] == "tariff":
+        tariff_id = int(parts[2])
+        extend_subscription_id = int(parts[4]) if len(parts) >= 5 and parts[3] == "extend" else None
+        await _show_tariff_checkout(self, callback, state, tariff_id, extend_subscription_id)
+        return
+    await _ORIGINAL_HANDLE_BUY(self, callback, state)
+
+
+async def _patched_handle_nav_callbacks(self, callback: CallbackQuery, state):
+    data = callback.data or ""
+    if data == "nav:home":
+        await state.clear()
+        user = await self.store.get_or_create_user(callback.from_user)
+        await self._safe_edit_message_text(callback.message, await self._render_home_text(), self._home_inline_markup(user.is_admin))
+        await self._safe_answer_callback(callback)
+        return
+    if data.startswith("nav:profile"):
+        page = 1
+        parts = data.split(":")
+        if len(parts) >= 3 and parts[2].isdigit():
+            page = int(parts[2])
+        await state.clear()
+        await _send_profile_screen(self, callback, callback.from_user, page)
+        return
+    if data == "nav:buy":
+        tariffs = await self.store.list_tariffs(only_active=True)
+        await state.clear()
+        await self._safe_edit_message_text(callback.message, await self._render_buy_text(tariffs), kb.tariffs_keyboard(tariffs, labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    if data == "nav:referral":
+        await state.clear()
+        user = await self.store.get_or_create_user(callback.from_user)
+        await self._safe_edit_message_text(callback.message, await self._render_referral_text(user), kb.referral_inline_keyboard(self._invite_link(user.telegram_id), user.is_admin, True, True, labels=await self._user_button_labels()))
+        await self._safe_answer_callback(callback)
+        return
+    if data == "nav:admin":
+        await state.clear()
+        actor = await self._admin_actor(callback.from_user)
+        role = self._admin_role_value(actor)
+        if role == "user":
+            await self._safe_answer_callback(callback, "Доступ закрыт.", show_alert=True)
+            return
+        await self._safe_edit_message_text(callback.message, await self._admin_panel_text(role), kb.admin_panel_keyboard(role))
+        await self._safe_answer_callback(callback)
+        return
+    await _ORIGINAL_HANDLE_NAV(self, callback, state)
+
+
+async def _patched_handle_admin_callbacks(self, callback: CallbackQuery, state):
+    if not await self._assert_admin_callback(callback):
+        return
+    actor = await self._admin_actor(callback.from_user)
+    role = self._admin_role_value(actor)
+    data = callback.data or ""
+    if data == "adm:panel":
+        await self._safe_edit_message_text(callback.message, await self._admin_panel_text(role), kb.admin_panel_keyboard(role))
+        await self._safe_answer_callback(callback)
+        return
+    if data == "adm:roles":
+        users = await self.store.list_admin_users()
+        lines = ["?? Роли", ""]
+        if not users:
+            lines.append("Администраторы пока не назначены.")
+        else:
+            for user in users:
+                lines.append(f"• {display_user(user)} — {admin_role_title(self._admin_role_value(user))}")
+        await self._safe_edit_message_text(callback.message, "\n".join(lines), kb.back_keyboard("adm:panel"))
+        await self._safe_answer_callback(callback)
+        return
+    if data.startswith("adm:server:failures:"):
+        server_id = int(data.rsplit(":", 1)[-1])
+        failures = await self.store.list_provisioning_failures(server_id=server_id, limit=15)
+        server = await self.store.get_server(server_id)
+        lines = [f"?? История сбоев: {server_title(server) if server else f'Сервер #{server_id}'}", ""]
+        if not failures:
+            lines.append("За последнее время сбоев нет.")
+        else:
+            for item in failures[:10]:
+                details = safe_text(getattr(item, 'error', None), 'Без текста ошибки')
+                lines.append(f"• {item.created_at:%d.%m %H:%M} — {details}")
+        await self._safe_edit_message_text(callback.message, "\n".join(lines), kb.back_keyboard("adm:panel"))
+        await self._safe_answer_callback(callback)
+        return
+    await _ORIGINAL_HANDLE_ADMIN(self, callback, state)
 
 
 def patch_main_symbols(namespace: dict) -> None:
-    def _wrap(name: str):
-        original = namespace.get(name)
-        if not callable(original):
-            return
-        def _wrapped(*args, __original=original, **kwargs):
-            result = __original(*args, **kwargs)
-            if isinstance(result, str):
-                return repair_text(result)
-            if isinstance(result, list):
-                return [repair_text(item) if isinstance(item, str) else item for item in result]
-            return result
-        namespace[name] = _wrapped
-
-    for func_name in (
-        "build_subscription_action_rows",
-        "display_user_name",
-        "render_subscription_link_lines",
-        "render_payment_activation_message",
-        "render_gift_purchase_activation_message",
-        "render_abandoned_payment_message",
-        "render_expiry_warning_message",
-        "render_provisioning_alert_message",
-        "render_update_notification",
-    ):
-        _wrap(func_name)
-    namespace["update_notice_keyboard"] = kb.update_notice_keyboard
-
-
-_ORIGINAL_UI_SNAPSHOT = BotController._ui_snapshot
+    if "HOME_LABEL" in namespace:
+        namespace["HOME_LABEL"] = kb.HOME_LABEL
+    if "BACK_LABEL" in namespace:
+        namespace["BACK_LABEL"] = kb.BACK_LABEL
 
 
 def apply_ui_hotfixes() -> None:
-    kb._user_labels = clean_button_labels
-    kb.updates_admin_keyboard = _patched_updates_admin_keyboard
-    kb.update_notice_keyboard = _patched_update_notice_keyboard
+    BotController._safe_edit_message_text = _patched_safe_edit_message_text
+    BotController._safe_answer_callback = _patched_safe_answer_callback
+    BotController._send_inline_screen = _patched_send_inline_screen
     BotController._ui_snapshot = _patched_ui_snapshot
     BotController._user_button_labels = _patched_user_button_labels
-    BotController._send_inline_screen = _patched_send_inline_screen
-    BotController._admin_role_title = _patched_admin_role_title
-    BotController._payment_method_title = _patched_payment_method_title
-    BotController._tariff_upsell_lines = _patched_tariff_upsell_lines
-    BotController._render_tariff_lines = _patched_render_tariff_lines
-    BotController._render_home_text = _patched_render_home_text
-    BotController._render_buy_text = _patched_render_buy_text
-    BotController._render_help_text = _patched_render_help_text
-    BotController._render_device_guides_menu = _patched_render_device_guides_menu
-    BotController._render_device_guide = _patched_render_device_guide
-    BotController._render_referral_text = _patched_render_referral_text
-    BotController._render_trial_text = _patched_render_trial_text
-
+    BotController._render_home_text = _render_home_text
+    BotController._render_buy_text = _render_buy_text
+    BotController._render_help_text = _render_help_text
+    BotController._render_referral_text = _render_referral_text
+    BotController._render_trial_text = _render_trial_text
+    BotController._admin_panel_text = _admin_panel_text
+    BotController.show_profile = _patched_show_profile
+    BotController.show_buy = _patched_show_buy
+    BotController.show_referrals = _patched_show_referrals
+    BotController.show_admin_panel_message = _patched_show_admin_panel_message
+    BotController.receive_promo_code = _patched_receive_promo_code
+    BotController.handle_buy_callbacks = _patched_handle_buy_callbacks
+    BotController.handle_nav_callbacks = _patched_handle_nav_callbacks
+    BotController.handle_admin_callbacks = _patched_handle_admin_callbacks
+    kb.tariffs_keyboard = _tariffs_keyboard_clean
+    kb.payment_methods_keyboard = _payment_methods_keyboard_clean
+    kb.admin_panel_keyboard = _admin_panel_keyboard_clean
 
