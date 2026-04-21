@@ -97,12 +97,19 @@ async def _patched_safe_answer_callback(self, callback, text=None, show_alert: b
 
 
 async def _patched_send_inline_screen(self, message: Message, text: str, reply_markup) -> None:
-    cleanup = await message.answer(".", reply_markup=ReplyKeyboardRemove())
+    cleanup = await message.answer("\u2060", reply_markup=ReplyKeyboardRemove())
     try:
-        await cleanup.delete()
+        await cleanup.edit_text(
+            repair_text(text),
+            reply_markup=reply_markup,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
     except Exception:
-        pass
-    await message.answer(repair_text(text), reply_markup=reply_markup, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        await message.answer(
+            repair_text(text),
+            reply_markup=reply_markup,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
 
 
 async def _patched_ui_snapshot(self):
@@ -611,3 +618,4 @@ def apply_ui_hotfixes() -> None:
     kb.tariffs_keyboard = _tariffs_keyboard_clean
     kb.payment_methods_keyboard = _payment_methods_keyboard_clean
     kb.admin_panel_keyboard = _admin_panel_keyboard_clean
+
