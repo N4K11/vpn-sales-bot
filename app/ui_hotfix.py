@@ -978,3 +978,20 @@ def apply_ui_hotfixes() -> None:
     controller_module.update_notice_keyboard = _update_notice_keyboard_clean
 
 
+
+# Stable runtime overlay. Kept at the end so it wins over legacy hotfix symbols.
+from app.stable_runtime import apply_stable_runtime as _apply_stable_runtime
+from app.stable_runtime import patch_main_symbols as _stable_patch_main_symbols
+
+_legacy_apply_ui_hotfixes = apply_ui_hotfixes
+_legacy_patch_main_symbols = patch_main_symbols
+
+
+def apply_ui_hotfixes() -> None:
+    _legacy_apply_ui_hotfixes()
+    _apply_stable_runtime()
+
+
+def patch_main_symbols(namespace: dict) -> None:
+    _legacy_patch_main_symbols(namespace)
+    _stable_patch_main_symbols(namespace)
